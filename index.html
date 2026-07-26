@@ -93,6 +93,17 @@
   .price-opt.on{border-color:var(--brass);background:var(--brass);color:var(--ink)}
   .price-opt small{display:block;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--chrome);margin-top:3px}
   .price-opt.on small{color:var(--ink)}
+  /* selfie haircut preview */
+  .tryon{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#0C1620}
+  .tryon-head{display:flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--brass)}
+  .tryon-head small{font-family:'Inter',sans-serif;letter-spacing:.03em;text-transform:none;color:var(--chrome);font-size:11px;font-weight:600}
+  .selfie-preview{margin-top:10px}
+  .selfie-preview img{max-width:130px;border-radius:9px;border:1px solid var(--line);display:block}
+  .tryon-out{margin-top:12px}
+  .tryon-out img{width:100%;border-radius:11px;border:1px solid var(--brass);display:block}
+  .tryon-note{font-size:12px;color:var(--chrome);margin-top:8px;line-height:1.5;text-align:center}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(233,239,234,.25);border-top-color:var(--brass);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion: reduce){
     .pole i{animation:none}
     .emblem .pole-spin{animation:none}
@@ -168,6 +179,18 @@
       <label for="b-want">What cut do you want?</label>
       <div class="hint">Say it however you like — guard numbers, fade, line-up, beard.</div>
       <textarea id="b-want" placeholder="e.g. Skin fade up the sides, longer messy bit on top, sharp line-up, beard tidied"></textarea>
+
+      <!-- SEE IT ON ME (AI haircut preview) -->
+      <div class="tryon">
+        <div class="tryon-head">See it on you <small>optional</small></div>
+        <div class="hint">Add a clear, front-facing selfie and we'll show the cut on you. Change the words above and try again as many times as you like.</div>
+        <input id="selfie-input" type="file" accept="image/*" class="hide" onchange="pickSelfie(this)">
+        <div id="selfie-preview" class="selfie-preview hide"></div>
+        <button type="button" class="btn ghost" id="selfie-pick-btn" onclick="document.getElementById('selfie-input').click()">Add a selfie</button>
+        <button type="button" class="btn" id="tryon-btn" onclick="tryOn()" style="display:none">Show me the cut</button>
+        <div id="tryon-out" class="tryon-out"></div>
+      </div>
+
       <label for="b-name">Your name</label>
       <input id="b-name" placeholder="e.g. Sam Wilson" autocomplete="name">
       <label for="b-phone">Phone number</label>
@@ -280,6 +303,7 @@ let dayPick = null, timePick = null;
 let barberPin = null;          // set on first barber login
 let isBarber = false;          // are we currently unlocked?
 let mineDigits = '';           // phone the client looked up
+let selfieData = null;         // the client's selfie (small JPEG) for the AI preview
 
 /* show the price nicely: "Free" when 0, else "£5" */
 function priceLabel(n){ n = (n===undefined? PRICE : n); return n>0 ? money(n) : 'Free'; }
@@ -461,9 +485,84 @@ function goStep(n){
 function startOver(){
   document.getElementById('confirm-card').classList.add('hide');
   document.getElementById('steps').classList.remove('hide');
+  resetTryon();
   timePick=null;
   goStep(1);
   render();
+}
+
+/* ---------- selfie haircut preview ---------- */
+// read the chosen photo, shrink it (so it uploads fast), show a little preview
+function pickSelfie(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const img = new Image();
+    img.onload = ()=>{
+      // shrink to max 1024px on the long side
+      const max = 1024;
+      let w = img.width, h = img.height;
+      if(w > h && w > max){ h = Math.round(h*max/w); w = max; }
+      else if(h >= w && h > max){ w = Math.round(w*max/h); h = max; }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      selfieData = c.toDataURL('image/jpeg', 0.85);
+      const box = document.getElementById('selfie-preview');
+      box.innerHTML = '<img src="'+selfieData+'" alt="your selfie">';
+      box.classList.remove('hide');
+      document.getElementById('selfie-pick-btn').textContent = 'Choose a different selfie';
+      document.getElementById('tryon-btn').style.display = 'block';
+      document.getElementById('tryon-out').innerHTML = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// send the selfie + the description to our own /api/tryon, show the result
+async function tryOn(){
+  const desc = document.getElementById('b-want').value.trim();
+  if(!desc)       return flash('Describe the cut above first, then try it on.');
+  if(!selfieData) return flash('Add a selfie first.');
+
+  const btn = document.getElementById('tryon-btn');
+  const out = document.getElementById('tryon-out');
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.innerHTML = '<span class="spin"></span>Making your preview…';
+  out.innerHTML = '<div class="tryon-note">This takes a few seconds…</div>';
+
+  try{
+    const r = await fetch('/api/tryon', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image:selfieData, prompt:desc })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(r.ok && data.url){
+      out.innerHTML =
+        '<img src="'+data.url+'" alt="you with the new cut">' +
+        '<div class="tryon-note">Not quite right? Tweak the words above and tap “Show me the cut” again.</div>';
+    } else {
+      out.innerHTML = '<div class="tryon-note">'+esc(data.error || 'Could not make a preview right now. You can still book — the preview is just for fun.')+'</div>';
+    }
+  }catch(e){
+    out.innerHTML = '<div class="tryon-note">Preview isn\'t reachable right now. You can still book as normal.</div>';
+  }
+  btn.disabled = false;
+  btn.textContent = original;
+}
+
+// wipe the selfie + preview so the next client starts clean
+function resetTryon(){
+  selfieData = null;
+  const inp = document.getElementById('selfie-input'); if(inp) inp.value = '';
+  const prev = document.getElementById('selfie-preview'); if(prev){ prev.innerHTML=''; prev.classList.add('hide'); }
+  const out = document.getElementById('tryon-out'); if(out) out.innerHTML = '';
+  const pick = document.getElementById('selfie-pick-btn'); if(pick) pick.textContent = 'Add a selfie';
+  const tb = document.getElementById('tryon-btn'); if(tb) tb.style.display = 'none';
 }
 
 /* ---------- booking ---------- */
@@ -507,6 +606,7 @@ async function book(){
   document.getElementById('b-name').value='';
   document.getElementById('b-phone').value='';
   document.getElementById('b-want').value='';
+  resetTryon();
   timePick=null;
   flash('Booked in. See you then.');
   render();
