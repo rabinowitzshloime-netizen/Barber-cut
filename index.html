@@ -40,9 +40,9 @@
     animation:rise .35s ease both}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   label{display:block;font-size:12px;color:var(--chrome);margin:12px 0 5px;font-weight:600}
-  input,textarea{width:100%;padding:12px;border-radius:9px;border:1px solid var(--line);background:#0C1620;color:var(--porcelain);font:400 15px 'Inter',sans-serif;transition:border-color .15s}
+  input,textarea,select{width:100%;padding:12px;border-radius:9px;border:1px solid var(--line);background:#0C1620;color:var(--porcelain);font:400 15px 'Inter',sans-serif;transition:border-color .15s}
   textarea{min-height:64px;resize:vertical}
-  input:focus,textarea:focus{outline:none;border-color:var(--brass)}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--brass)}
   .btn{width:100%;margin-top:14px;padding:15px;border:0;border-radius:9px;cursor:pointer;background:var(--red);color:#fff;font:700 15px 'Oswald',sans-serif;letter-spacing:.08em;text-transform:uppercase;transition:filter .15s,transform .06s}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--porcelain);font-size:13px;padding:12px}
   .btn:disabled{opacity:.5;cursor:wait}
@@ -148,6 +148,7 @@
     <button id="tab-mine" onclick="show('mine')">My bookings</button>
     <button id="tab-diary" class="hide" onclick="show('diary')">All bookings</button>
     <button id="tab-money" class="hide" onclick="show('money')">Money</button>
+    <button id="tab-settings" class="hide" onclick="show('settings')">Settings</button>
     <button id="tab-login" class="barber-btn" onclick="barberLogin()">Barber</button>
     <button id="tab-logout" class="barber-btn hide" onclick="barberLogout()">Log out</button>
   </nav>
@@ -188,6 +189,7 @@
         <div id="selfie-preview" class="selfie-preview hide"></div>
         <button type="button" class="btn ghost" id="selfie-pick-btn" onclick="document.getElementById('selfie-input').click()">Add a selfie</button>
         <button type="button" class="btn" id="tryon-btn" onclick="tryOn()" style="display:none">Show me the cut</button>
+        <div class="hint" style="text-align:center;margin-top:8px">Just a rough guide to the style — not an exact photo of you.</div>
         <div id="tryon-out" class="tryon-out"></div>
       </div>
 
@@ -234,6 +236,21 @@
   <!-- BARBER DIARY -->
   <section id="view-diary" class="hide">
     <div class="card">
+      <h2>Add a booking</h2>
+      <div class="hint">Client rang up? Add their booking here. Uses your normal price.</div>
+      <label for="ba-day">Day</label>
+      <select id="ba-day" onchange="fillBarberTimes()"></select>
+      <label for="ba-time">Time</label>
+      <select id="ba-time"></select>
+      <label for="ba-name">Name</label>
+      <input id="ba-name" placeholder="Client's name" autocomplete="off">
+      <label for="ba-phone">Phone</label>
+      <input id="ba-phone" type="tel" placeholder="Their number" autocomplete="off">
+      <label for="ba-want">Cut</label>
+      <input id="ba-want" placeholder="What they want" autocomplete="off">
+      <button class="btn" onclick="barberAdd()">Add booking</button>
+    </div>
+    <div class="card">
       <h2>Coming up</h2>
       <div id="diary-box"></div>
     </div>
@@ -255,11 +272,18 @@
         <div style="display:flex;justify-content:space-between;padding:8px 0"><span>Cuts done</span><span class="money" id="m-count">0</span></div>
       </div>
     </div>
+  </section>
 
+  <!-- SETTINGS -->
+  <section id="view-settings" class="hide">
     <div class="card">
       <h2>Price per cut</h2>
-      <div class="hint">Charge nothing while you build up, then switch to £5 when you're ready. Only changes new bookings from now on.</div>
-      <div class="price-row" id="price-row"></div>
+      <div class="hint">Type what you charge — any amount. Or make cuts free while you build up. Only changes new bookings from now on.</div>
+      <label for="price-input">Price (£)</label>
+      <input id="price-input" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g. 10">
+      <button class="btn" onclick="saveCustomPrice()">Save price</button>
+      <button class="btn ghost" onclick="setPrice(0)">Make cuts free</button>
+      <div class="hint" id="price-now" style="margin-top:10px"></div>
     </div>
 
     <div class="card">
@@ -344,6 +368,59 @@ async function setPrice(n){
   flash(PRICE>0 ? 'Price set to '+money(PRICE)+'.' : 'Cuts are now free.');
   render();
 }
+// barber typed a custom price in Settings
+function saveCustomPrice(){
+  const v = document.getElementById('price-input').value.trim();
+  const n = Number(v);
+  if(v==='' || isNaN(n) || n<0) return flash('Type a number, like 10.');
+  setPrice(n);
+}
+
+/* ---------- barber books for a phoned-in client ---------- */
+function fillBarberForm(){
+  const daySel = document.getElementById('ba-day');
+  if(!daySel) return;
+  const keep = daySel.value;
+  daySel.innerHTML = nextDays().map(d=>`<option value="${d.iso}">${d.dow} ${d.num} ${d.mon}</option>`).join('');
+  if(keep) daySel.value = keep;
+  fillBarberTimes();
+}
+function fillBarberTimes(){
+  const daySel = document.getElementById('ba-day');
+  const timeSel = document.getElementById('ba-time');
+  if(!daySel || !timeSel) return;
+  const d = daySel.value;
+  const free = allSlots().filter(t=>!taken(d,t) && !isPast(d,t));
+  timeSel.innerHTML = free.length
+    ? free.map(t=>`<option value="${t}">${t}</option>`).join('')
+    : `<option value="">No free times that day</option>`;
+}
+async function barberAdd(){
+  const date = document.getElementById('ba-day').value;
+  const time = document.getElementById('ba-time').value;
+  const name = document.getElementById('ba-name').value.trim();
+  const phone= document.getElementById('ba-phone').value.trim();
+  const want = document.getElementById('ba-want').value.trim();
+  if(!date || !time) return flash('Pick a day and a free time.');
+  if(!name)  return flash("Add the client's name.");
+  if(!phone) return flash('Add their phone number.');
+  if(!want)  return flash('Add what cut they want.');
+
+  await pullBookings();
+  if(taken(date,time)) return flash('That slot just went. Pick another time.');
+
+  const rec = { id:Date.now(), date, time, name, phone, want, price:PRICE, done:false };
+  try{ await addBooking(rec); }
+  catch(e){ return flash('Could not save. Check signal and try again.'); }
+  await pullBookings();
+
+  document.getElementById('ba-name').value='';
+  document.getElementById('ba-phone').value='';
+  document.getElementById('ba-want').value='';
+  flash('Booking added.');
+  fillBarberForm();
+  render();
+}
 async function changePin(){
   const a = document.getElementById('new-pin').value.trim();
   const b = document.getElementById('new-pin2').value.trim();
@@ -365,7 +442,7 @@ function barberLogin(){
     : 'Enter your PIN to see all bookings.';
   document.getElementById('pin-input').value = '';
   // show the login view (hide all others)
-  ['book','mine','diary','money','login'].forEach(n=>{
+  ['book','mine','diary','money','settings','login'].forEach(n=>{
     const v = document.getElementById('view-'+n);
     if(v) v.classList.toggle('hide', n!=='login');
   });
@@ -393,6 +470,7 @@ function unlock(){
   // show the barber tabs
   document.getElementById('tab-diary').classList.remove('hide');
   document.getElementById('tab-money').classList.remove('hide');
+  document.getElementById('tab-settings').classList.remove('hide');
   document.getElementById('tab-login').classList.add('hide');
   document.getElementById('tab-logout').classList.remove('hide');
   show('diary');
@@ -405,6 +483,7 @@ function barberLogout(){
   // hide the barber tabs
   document.getElementById('tab-diary').classList.add('hide');
   document.getElementById('tab-money').classList.add('hide');
+  document.getElementById('tab-settings').classList.add('hide');
   document.getElementById('tab-logout').classList.add('hide');
   document.getElementById('tab-login').classList.remove('hide');
   show('book');
@@ -427,17 +506,19 @@ function allSlots(){
   return out;
 }
 function taken(d,t){ return bookings.some(b=>b.date===d && b.time===t); }
+function isPast(d,t){ return new Date(d+'T'+t+':00').getTime() <= Date.now(); }
 function pretty(iso){ return new Date(iso+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}); }
 function money(n){ return '£'+(Math.round(n*100)/100).toFixed(2).replace(/\.00$/,''); }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function show(v){
-  if((v==='diary' || v==='money') && !isBarber){ v='book'; }
-  ['book','mine','diary','money','login'].forEach(n=>{
+  if((v==='diary' || v==='money' || v==='settings') && !isBarber){ v='book'; }
+  ['book','mine','diary','money','settings','login'].forEach(n=>{
     const view = document.getElementById('view-'+n);
     const tab  = document.getElementById('tab-'+n);
     if(view) view.classList.toggle('hide', n!==v);
     if(tab)  tab.classList.toggle('on', n===v);
   });
+  if(v==='diary') fillBarberForm();
 }
 function flash(m){
   const f=document.getElementById('flash'); f.textContent=m; f.classList.remove('hide');
@@ -544,7 +625,7 @@ async function tryOn(){
     if(r.ok && data.url){
       out.innerHTML =
         '<img src="'+data.url+'" alt="you with the new cut">' +
-        '<div class="tryon-note">Not quite right? Tweak the words above and tap “Show me the cut” again.</div>';
+        '<div class="tryon-note">A rough style guide only — the AI isn\'t an exact photo of you. Change the words above and tap “Show me the cut” again to tweak it.</div>';
     } else {
       out.innerHTML = '<div class="tryon-note">'+esc(data.error || 'Could not make a preview right now. You can still book — the preview is just for fun.')+'</div>';
     }
@@ -574,6 +655,7 @@ async function book(){
   if(!timePick) return flash('Pick a time slot.');
   if(!name)     return flash('Add your name.');
   if(!phone)    return flash('Add a phone number.');
+  if(isPast(dayPick,timePick)){ flash('That time has passed. Pick a later slot.'); render(); return; }
   if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
 
   // double-check against the live database so two people can't grab the same slot
@@ -671,8 +753,8 @@ function render(){
       <small>${d.dow}</small><b>${d.num}</b><small>${d.mon}</small></button>`).join('');
 
   document.getElementById('slot-box').innerHTML = allSlots().map(t=>{
-    const isT = taken(dayPick,t);
-    return `<button class="slot ${isT?'taken':''} ${timePick===t?'on':''}" ${isT?'disabled':''} onclick="pickTime('${t}')">${t}</button>`;
+    const off = taken(dayPick,t) || isPast(dayPick,t);
+    return `<button class="slot ${off?'taken':''} ${timePick===t?'on':''}" ${off?'disabled':''} onclick="pickTime('${t}')">${t}</button>`;
   }).join('');
 
   const up = bookings.filter(b=>!b.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
@@ -707,12 +789,10 @@ function render(){
   document.getElementById('m-count').textContent=done.length;
   const sub = document.getElementById('subline');
   if(sub) sub.textContent = PRICE>0 ? 'Book your cut — '+money(PRICE)+', cash on the day' : 'Book your cut — free right now';
-  const pr = document.getElementById('price-row');
-  if(pr){
-    pr.innerHTML =
-      `<button class="price-opt ${PRICE===0?'on':''}" onclick="setPrice(0)">Free<small>while you build up</small></button>
-       <button class="price-opt ${PRICE===5?'on':''}" onclick="setPrice(5)">£5<small>standard cut</small></button>`;
-  }
+  const pin = document.getElementById('price-input');
+  if(pin && document.activeElement!==pin) pin.value = PRICE>0 ? PRICE : '';
+  const pnow = document.getElementById('price-now');
+  if(pnow) pnow.textContent = PRICE>0 ? 'Cuts are currently '+money(PRICE)+'.' : 'Cuts are currently free.';
   renderMine();
 }
 document.getElementById('pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submitPin(); });
