@@ -148,7 +148,6 @@
 
   <div id="flash" class="flash hide"></div>
 
-  <!-- CLIENT BOOKING -->
   <section id="view-book">
     <div class="steps" id="steps">
       <div class="step on" data-s="1"><span class="dot">1</span>Book</div>
@@ -207,7 +206,6 @@
     </div>
   </section>
 
-  <!-- CLIENT: MY OWN BOOKINGS -->
   <section id="view-mine" class="hide">
     <div class="card">
       <h2>My bookings</h2>
@@ -219,7 +217,6 @@
     </div>
   </section>
 
-  <!-- BARBER DIARY -->
   <section id="view-diary" class="hide">
     <div class="card">
       <h2>Add a booking</h2>
@@ -246,7 +243,6 @@
     </div>
   </section>
 
-  <!-- MONEY -->
   <section id="view-money" class="hide">
     <div class="card receipt">
       <div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.14em;text-transform:uppercase;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px">Cut Book · Takings</div>
@@ -260,7 +256,6 @@
     </div>
   </section>
 
-  <!-- SETTINGS -->
   <section id="view-settings" class="hide">
     <div class="card">
       <h2>Opening hours</h2>
@@ -291,7 +286,6 @@
     </div>
   </section>
 
-  <!-- BARBER LOGIN -->
   <section id="view-login" class="hide">
     <div class="card">
       <h2>Barber login</h2>
@@ -324,7 +318,7 @@ let barberPin = DEFAULT_PIN;
 let isBarber = false;
 let mineDigits = '';
 let selfieData = null;
-let tryonUrl = null;   // the AI preview image URL, saved with the booking
+let tryonUrl = null;
 
 function priceLabel(n){ n = (n===undefined? PRICE : n); return n>0 ? money(n) : 'Free'; }
 
@@ -582,7 +576,7 @@ function pickSelfie(input){
       document.getElementById('selfie-pick-btn').textContent = 'Choose a different selfie';
       document.getElementById('tryon-btn').style.display = 'block';
       document.getElementById('tryon-out').innerHTML = '';
-      tryonUrl = null;   // reset old result if they pick a new photo
+      tryonUrl = null;
     };
     img.src = e.target.result;
   };
@@ -593,7 +587,6 @@ async function tryOn(){
   const desc = document.getElementById('b-want').value.trim();
   if(!desc)       return flash('Describe the cut above first, then try it on.');
   if(!selfieData) return flash('Add a selfie first.');
-
   const btn = document.getElementById('tryon-btn');
   const out = document.getElementById('tryon-out');
   btn.disabled = true;
@@ -601,7 +594,6 @@ async function tryOn(){
   btn.innerHTML = '<span class="spin"></span>Making your preview…';
   out.innerHTML = '<div class="tryon-note">This takes a few seconds…</div>';
   tryonUrl = null;
-
   try{
     const r = await fetch('/api/tryon', {
       method:'POST',
@@ -610,7 +602,7 @@ async function tryOn(){
     });
     const data = await r.json().catch(()=>({}));
     if(r.ok && data.url){
-      tryonUrl = data.url;   // save so it gets stored with the booking
+      tryonUrl = data.url;
       out.innerHTML =
         '<img src="'+data.url+'" alt="you with the new cut">' +
         '<div class="tryon-note">Not quite right? Tweak the words above and tap "Show me the cut" again.</div>';
@@ -644,17 +636,13 @@ async function book(){
   if(!phone)    return flash('Add a phone number.');
   if(isPast(dayPick,timePick)){ flash('That time has passed. Pick a later slot.'); render(); return; }
   if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
-
   await pullBookings();
   if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
-
   const rec = { id:Date.now(), date:dayPick, time:timePick, name, phone, want, price:PRICE, done:false };
-  if(tryonUrl) rec.tryonurl = tryonUrl;   // attach the AI preview if one was made
-
+  if(tryonUrl) rec.tryonurl = tryonUrl;
   try{ await addBooking(rec); }
   catch(e){ return flash('Could not save your booking. Check signal and try again.'); }
   await pullBookings();
-
   const msg =
     'NEW BOOKING — Cut Book\n-----------------------\n' +
     'When:  ' + pretty(dayPick) + ' at ' + timePick + '\n' +
@@ -662,14 +650,11 @@ async function book(){
     'Cut:   ' + want + '\n' +
     'Price: ' + priceLabel();
   document.getElementById('receipt').textContent = msg;
-
   [1,2,3].forEach(s=>document.getElementById('step'+s).classList.add('hide'));
   document.getElementById('steps').classList.add('hide');
   document.getElementById('confirm-card').classList.remove('hide');
-
   mineDigits = digits(phone);
   document.getElementById('mine-phone').value = phone;
-
   document.getElementById('b-name').value='';
   document.getElementById('b-phone').value='';
   document.getElementById('b-want').value='';
@@ -764,6 +749,7 @@ function render(){
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <span class="name">${esc(b.name)}</span><span class="money">${money(PRICE)}</span></div>
       <div class="note">${esc(pretty(b.date))} · ${esc(b.time)} · ${esc(b.want)}</div>
+      <button class="del" onclick="cancel(${b.id})">Delete</button>
     </div>`).join('') : '<div class="empty"><span class="big-e">No cuts done yet</span>Tap "Mark as done" on a booking after you finish it.</div>';
 
   const now=Date.now(), day=86400000, today=new Date().toDateString();
