@@ -13,13 +13,18 @@ module.exports = async (req, res) => {
     const desc = (body.prompt || "").toString().trim();
     if (!image || !desc) return res.status(400).json({ error: "Need a photo and a description." });
 
+    // Did the client actually ask for facial hair?
+    const wantsFacialHair = /\b(beard|stubble|goatee|moustache|mustache|facial hair|soul patch|sideburn)\b/i.test(desc);
+    const beardRule = wantsFacialHair
+      ? "Give them the facial hair described in the request."
+      : "Keep the face COMPLETELY CLEAN SHAVEN. Do NOT add any beard, stubble, moustache or facial hair of any kind. If they already have facial hair, keep it exactly as it is now — do not add more.";
+
     const prompt =
-      "Restyle ONLY the hair of the person in this photo to match this request: \"" + desc + "\". " +
-      "Keep the SAME person exactly: same face, same age (do not make them look older or younger), " +
+      "Restyle ONLY the hair on the head of the person in this photo to match this request: \"" + desc + "\". " +
+      "Keep the SAME person exactly: same face, same age (do not make them older or younger), " +
       "same skin, same expression, same eyes, same clothing, same lighting and same background. " +
-      "Do NOT add a beard, moustache or any facial hair unless the request explicitly asks for it. " +
-      "If the request says no beard or clean shaven, make the face completely clean shaven. " +
-      "This is a realistic haircut preview for a barber, so change nothing except the hair. " +
+      beardRule + " " +
+      "This is a realistic haircut preview for a barber, so change nothing except the hair on the head. " +
       "Photorealistic, natural result.";
 
     const auth = { "Authorization": "Key " + KEY, "Content-Type": "application/json" };
