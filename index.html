@@ -100,6 +100,15 @@
   .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(233,239,234,.25);border-top-color:var(--brass);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .preview-thumb{max-width:100%;border-radius:9px;border:1px solid var(--brass);display:block;margin-top:8px}
+  /* per-day hours rows */
+  .day-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .day-row:last-child{border:0}
+  .day-row .dn{width:34px;font-size:13px;font-weight:700;color:var(--porcelain);flex-shrink:0}
+  .day-row .cl-label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--chrome);font-weight:400;margin:0;white-space:nowrap;flex-shrink:0}
+  .day-row .cl-label input[type=checkbox]{width:auto;padding:0;border:0;background:none}
+  .day-row .hr-selects{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+  .day-row .hr-selects select{padding:7px 6px;font-size:12px;flex:1}
+  .day-row .hr-selects span{font-size:11px;color:var(--chrome);white-space:nowrap}
   @media (prefers-reduced-motion: reduce){
     .pole i{animation:none}
     .emblem .pole-spin{animation:none}
@@ -148,6 +157,7 @@
 
   <div id="flash" class="flash hide"></div>
 
+  <!-- CLIENT BOOKING -->
   <section id="view-book">
     <div class="steps" id="steps">
       <div class="step on" data-s="1"><span class="dot">1</span>Book</div>
@@ -157,7 +167,7 @@
 
     <div class="card step-card" id="step1">
       <h2>Step 1 — Book a time</h2>
-      <div class="hint">Pick a day, then a slot. Greyed-out times are already taken.</div>
+      <div class="hint">Pick a day, then a slot. Greyed-out times are taken or the shop is closed.</div>
       <div class="days" id="day-box" style="margin-top:10px"></div>
       <div class="slots" id="slot-box" style="margin-top:8px"></div>
       <button class="btn" onclick="goStep(2)">Next: describe my cut</button>
@@ -206,6 +216,7 @@
     </div>
   </section>
 
+  <!-- CLIENT: MY OWN BOOKINGS -->
   <section id="view-mine" class="hide">
     <div class="card">
       <h2>My bookings</h2>
@@ -217,6 +228,7 @@
     </div>
   </section>
 
+  <!-- BARBER DIARY -->
   <section id="view-diary" class="hide">
     <div class="card">
       <h2>Add a booking</h2>
@@ -243,6 +255,7 @@
     </div>
   </section>
 
+  <!-- MONEY -->
   <section id="view-money" class="hide">
     <div class="card receipt">
       <div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:.14em;text-transform:uppercase;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px">Cut Book · Takings</div>
@@ -256,25 +269,25 @@
     </div>
   </section>
 
+  <!-- SETTINGS -->
   <section id="view-settings" class="hide">
     <div class="card">
       <h2>Opening hours</h2>
-      <div class="hint">Clients can only book slots between these times.</div>
-      <label for="open-sel">Open</label>
-      <select id="open-sel"></select>
-      <label for="close-sel">Close</label>
-      <select id="close-sel"></select>
-      <button class="btn" onclick="saveHours()">Save hours</button>
+      <div class="hint">Set your hours for each day. Tick "Closed" for days off.</div>
+      <div id="week-hours-box" style="margin-top:12px"></div>
+      <button class="btn" onclick="saveWeekHours()">Save hours</button>
     </div>
+
     <div class="card">
       <h2>Price per cut</h2>
-      <div class="hint">Type what you charge — any amount. Or make cuts free while you build up. Only changes new bookings from now on.</div>
+      <div class="hint">Type what you charge — any amount. Or make cuts free while you build up.</div>
       <label for="price-input">Price (£)</label>
       <input id="price-input" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g. 10">
       <button class="btn" onclick="saveCustomPrice()">Save price</button>
       <button class="btn ghost" onclick="setPrice(0)">Make cuts free</button>
       <div class="hint" id="price-now" style="margin-top:10px"></div>
     </div>
+
     <div class="card">
       <h2>Barber PIN</h2>
       <div class="hint">This is the code that unlocks the barber side. Keep it to yourself.</div>
@@ -286,6 +299,7 @@
     </div>
   </section>
 
+  <!-- BARBER LOGIN -->
   <section id="view-login" class="hide">
     <div class="card">
       <h2>Barber login</h2>
@@ -304,13 +318,21 @@ const SB_KEY = 'sb_publishable_XwGsqfSixY2vBFJuGdw1ag_zOnmOXK9';
 const SB = SB_URL + '/rest/v1/bookings';
 const SB_HEAD = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
 
-const PRICE_KEY = 'cutbook-price';
-const PIN_KEY   = 'cutbook-pin';
-const HOURS_KEY = 'cutbook-hours';
+const PRICE_KEY   = 'cutbook-price';
+const PIN_KEY     = 'cutbook-pin';
+const WEEK_KEY    = 'cutbook-week';   // per-day hours (replaces old cutbook-hours)
 const DEFAULT_PIN = '1234';
-
-let OPEN = 540, CLOSE = 1080;
 const MINS = 30;
+
+/* weekHours[0..6] where 0=Sun,1=Mon...6=Sat
+   Each entry is {open,close} in minutes-from-midnight, or null = closed. */
+const DEFAULT_HOURS = { open: 540, close: 1080 }; // 9:00 – 18:00
+let weekHours = [0,1,2,3,4,5,6].map(() => ({ ...DEFAULT_HOURS }));
+
+/* Mon→Sun display order */
+const DAY_ORDER = [1,2,3,4,5,6,0];
+const DAY_NAME  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
 let PRICE = 0;
 let bookings = [];
 let dayPick = null, timePick = null;
@@ -322,6 +344,7 @@ let tryonUrl = null;
 
 function priceLabel(n){ n = (n===undefined? PRICE : n); return n>0 ? money(n) : 'Free'; }
 
+/* ---------- database ---------- */
 async function pullBookings(){
   try{
     const r = await fetch(SB + '?select=*&order=date.asc,time.asc', { headers: SB_HEAD });
@@ -329,11 +352,11 @@ async function pullBookings(){
   }catch(e){}
 }
 async function addBooking(b){
-  const r = await fetch(SB, { method:'POST', headers:{...SB_HEAD, 'Prefer':'return=minimal'}, body: JSON.stringify(b) });
+  const r = await fetch(SB, { method:'POST', headers:{...SB_HEAD,'Prefer':'return=minimal'}, body:JSON.stringify(b) });
   if(!r.ok) throw new Error('add failed');
 }
 async function patchBooking(id, changes){
-  const r = await fetch(SB + '?id=eq.' + id, { method:'PATCH', headers:{...SB_HEAD,'Prefer':'return=minimal'}, body: JSON.stringify(changes) });
+  const r = await fetch(SB + '?id=eq.' + id, { method:'PATCH', headers:{...SB_HEAD,'Prefer':'return=minimal'}, body:JSON.stringify(changes) });
   if(!r.ok) throw new Error('update failed');
 }
 async function removeBooking(id){
@@ -341,18 +364,34 @@ async function removeBooking(id){
   if(!r.ok) throw new Error('delete failed');
 }
 
+/* ---------- load / init ---------- */
 async function load(){
   try{ const p = localStorage.getItem(PIN_KEY); if(p) barberPin = p; }catch(e){}
   try{ const pr = localStorage.getItem(PRICE_KEY); if(pr!=null) PRICE = Number(pr)||0; }catch(e){}
-  try{ const h = JSON.parse(localStorage.getItem(HOURS_KEY)||'null');
-    if(h){ let o=h.open, c=h.close; if(o<48) o*=60; if(c<48) c*=60; if(o<c){ OPEN=o; CLOSE=c; } }
+
+  /* Load per-day hours. If none saved, try migrating the old single-hours setting. */
+  try{
+    const w = JSON.parse(localStorage.getItem(WEEK_KEY)||'null');
+    if(w && Array.isArray(w) && w.length===7){
+      weekHours = w;
+    } else {
+      /* migrate old setting */
+      const old = JSON.parse(localStorage.getItem('cutbook-hours')||'null');
+      if(old){
+        let o=old.open, c=old.close;
+        if(o<48) o*=60; if(c<48) c*=60;
+        if(o<c) weekHours = [0,1,2,3,4,5,6].map(()=>({open:o,close:c}));
+      }
+    }
   }catch(e){}
-  fillHourSelects();
+
   await pullBookings();
   if(!dayPick) dayPick = nextDays()[0].iso;
   render();
   setInterval(async ()=>{ await pullBookings(); render(); }, 20000);
 }
+
+/* ---------- price ---------- */
 async function setPrice(n){
   PRICE = Number(n)||0;
   try{ localStorage.setItem(PRICE_KEY, String(PRICE)); }catch(e){}
@@ -362,31 +401,58 @@ async function setPrice(n){
 function saveCustomPrice(){
   const v = document.getElementById('price-input').value.trim();
   const n = Number(v);
-  if(v==='' || isNaN(n) || n<0) return flash('Type a number, like 10.');
+  if(v===''||isNaN(n)||n<0) return flash('Type a number, like 10.');
   setPrice(n);
 }
+
+/* ---------- per-day opening hours ---------- */
 function hourLabel(mins){ return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
-function fillHourSelects(){
-  const os=document.getElementById('open-sel'), cs=document.getElementById('close-sel');
-  if(!os||!cs) return;
-  let oo='', co='';
-  for(let m=360;m<=1350;m+=30) oo+=`<option value="${m}">${hourLabel(m)}</option>`;
-  for(let m=390;m<=1380;m+=30) co+=`<option value="${m}">${hourLabel(m)}</option>`;
-  os.innerHTML=oo; cs.innerHTML=co;
-  os.value=OPEN; cs.value=CLOSE;
+
+function fillWeekHourSelects(){
+  const box = document.getElementById('week-hours-box');
+  if(!box) return;
+  box.innerHTML = DAY_ORDER.map(dow => {
+    const h = weekHours[dow];
+    const closed = !h;
+    let oo='', co='';
+    for(let m=360;m<=1350;m+=30) oo+=`<option value="${m}"${h&&h.open===m?' selected':''}>${hourLabel(m)}</option>`;
+    for(let m=390;m<=1380;m+=30) co+=`<option value="${m}"${h&&h.close===m?' selected':''}>${hourLabel(m)}</option>`;
+    return `<div class="day-row">
+      <span class="dn">${DAY_NAME[dow]}</span>
+      <label class="cl-label"><input type="checkbox" style="width:auto;padding:0;border:0;background:none" id="cls-${dow}" ${closed?'checked':''} onchange="toggleClosed(${dow})"> Closed</label>
+      <div class="hr-selects" id="hrs-${dow}" style="${closed?'display:none':'display:flex'}">
+        <select id="open-${dow}">${oo}</select>
+        <span>to</span>
+        <select id="close-${dow}">${co}</select>
+      </div>
+    </div>`;
+  }).join('');
 }
-function saveHours(){
-  const o=Number(document.getElementById('open-sel').value);
-  const c=Number(document.getElementById('close-sel').value);
-  if(isNaN(o)||isNaN(c)) return flash('Pick both times.');
-  if(c<=o) return flash('Closing time must be after opening.');
-  OPEN=o; CLOSE=c;
-  try{ localStorage.setItem(HOURS_KEY, JSON.stringify({open:o,close:c})); }catch(e){}
-  flash('Open '+hourLabel(o)+' to '+hourLabel(c)+'.');
+
+function toggleClosed(dow){
+  const closed = document.getElementById('cls-'+dow).checked;
+  document.getElementById('hrs-'+dow).style.display = closed ? 'none' : 'flex';
+}
+
+function saveWeekHours(){
+  const newH = Array(7).fill(null);
+  for(const dow of DAY_ORDER){
+    const clsEl = document.getElementById('cls-'+dow);
+    if(!clsEl) continue;
+    if(clsEl.checked){ newH[dow]=null; continue; }
+    const o = Number(document.getElementById('open-'+dow).value);
+    const c = Number(document.getElementById('close-'+dow).value);
+    if(c<=o) return flash('Closing must be after opening for '+DAY_NAME[dow]+'.');
+    newH[dow] = {open:o, close:c};
+  }
+  weekHours = newH;
+  try{ localStorage.setItem(WEEK_KEY, JSON.stringify(weekHours)); }catch(e){}
+  flash('Hours saved.');
   render();
   fillBarberForm();
 }
 
+/* ---------- barber add-booking form ---------- */
 function fillBarberForm(){
   const daySel = document.getElementById('ba-day');
   if(!daySel) return;
@@ -398,9 +464,9 @@ function fillBarberForm(){
 function fillBarberTimes(){
   const daySel = document.getElementById('ba-day');
   const timeSel = document.getElementById('ba-time');
-  if(!daySel || !timeSel) return;
+  if(!daySel||!timeSel) return;
   const d = daySel.value;
-  const free = allSlots().filter(t=>!taken(d,t) && !isPast(d,t));
+  const free = allSlots(d).filter(t=>!taken(d,t)&&!isPast(d,t));
   timeSel.innerHTML = free.length
     ? free.map(t=>`<option value="${t}">${t}</option>`).join('')
     : `<option value="">No free times that day</option>`;
@@ -411,15 +477,14 @@ async function barberAdd(){
   const name = document.getElementById('ba-name').value.trim();
   const phone= document.getElementById('ba-phone').value.trim();
   const want = document.getElementById('ba-want').value.trim();
-  if(!date || !time) return flash('Pick a day and a free time.');
+  if(!date||!time) return flash('Pick a day and a free time.');
   if(!name)  return flash("Add the client's name.");
   if(!phone) return flash('Add their phone number.');
   if(!want)  return flash('Add what cut they want.');
   await pullBookings();
   if(taken(date,time)) return flash('That slot just went. Pick another time.');
-  const rec = { id:Date.now(), date, time, name, phone, want, price:PRICE, done:false };
-  try{ await addBooking(rec); }
-  catch(e){ return flash('Could not save. Check signal and try again.'); }
+  const rec = {id:Date.now(),date,time,name,phone,want,price:PRICE,done:false};
+  try{ await addBooking(rec); }catch(e){ return flash('Could not save. Check signal and try again.'); }
   await pullBookings();
   document.getElementById('ba-name').value='';
   document.getElementById('ba-phone').value='';
@@ -428,33 +493,34 @@ async function barberAdd(){
   fillBarberForm();
   render();
 }
+
+/* ---------- PIN ---------- */
 async function changePin(){
   const a = document.getElementById('new-pin').value.trim();
   const b = document.getElementById('new-pin2').value.trim();
-  if(a.length < 4) return flash('PIN must be at least 4 digits.');
-  if(a !== b)      return flash('The two PINs do not match.');
+  if(a.length<4) return flash('PIN must be at least 4 digits.');
+  if(a!==b)      return flash('The two PINs do not match.');
   barberPin = a;
-  try{ localStorage.setItem(PIN_KEY, barberPin); }catch(e){}
-  document.getElementById('new-pin').value = '';
-  document.getElementById('new-pin2').value = '';
+  try{ localStorage.setItem(PIN_KEY,barberPin); }catch(e){}
+  document.getElementById('new-pin').value='';
+  document.getElementById('new-pin2').value='';
   flash('PIN changed. Use it next time you log in.');
 }
-
 function barberLogin(){
-  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-input').value='';
   ['book','mine','diary','money','settings','login'].forEach(n=>{
-    const v = document.getElementById('view-'+n);
-    if(v) v.classList.toggle('hide', n!=='login');
+    const v=document.getElementById('view-'+n);
+    if(v) v.classList.toggle('hide',n!=='login');
   });
   document.getElementById('pin-input').focus();
 }
 async function submitPin(){
   const val = document.getElementById('pin-input').value.trim();
-  if(val === barberPin){ unlock(); }
+  if(val===barberPin){ unlock(); }
   else flash('Wrong PIN. Try again.');
 }
 function unlock(){
-  isBarber = true;
+  isBarber=true;
   document.getElementById('tab-book').classList.add('hide');
   document.getElementById('tab-mine').classList.add('hide');
   document.getElementById('tab-diary').classList.remove('hide');
@@ -465,7 +531,7 @@ function unlock(){
   show('diary');
 }
 function barberLogout(){
-  isBarber = false;
+  isBarber=false;
   document.getElementById('tab-book').classList.remove('hide');
   document.getElementById('tab-mine').classList.remove('hide');
   document.getElementById('tab-diary').classList.add('hide');
@@ -476,37 +542,46 @@ function barberLogout(){
   show('book');
 }
 
+/* ---------- helpers ---------- */
 function nextDays(){
   const out=[];
   for(let i=0;i<7;i++){
     const d=new Date(); d.setDate(d.getDate()+i);
-    out.push({ iso:d.toISOString().slice(0,10), dow: i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short'}),
-               num:d.getDate(), mon:d.toLocaleDateString('en-GB',{month:'short'}) });
+    out.push({iso:d.toISOString().slice(0,10), dow:i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short'}),
+              num:d.getDate(), mon:d.toLocaleDateString('en-GB',{month:'short'})});
   }
   return out;
 }
-function allSlots(){
+function allSlots(iso){
+  /* Use that day's hours; return [] if closed */
+  const dow = new Date(iso+'T12:00').getDay();
+  const h = weekHours[dow];
+  if(!h) return [];
   const out=[];
-  for(let m=OPEN; m<CLOSE; m+=MINS)
+  for(let m=h.open; m<h.close; m+=MINS)
     out.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'));
   return out;
 }
-function taken(d,t){ return bookings.some(b=>b.date===d && b.time===t); }
-function isPast(d,t){ return new Date(d+'T'+t+':00').getTime() <= Date.now(); }
-function dayHasFreeSlots(iso){ return allSlots().some(t=>!taken(iso,t) && !isPast(iso,t)); }
+function taken(d,t){ return bookings.some(b=>b.date===d&&b.time===t); }
+function isPast(d,t){ return new Date(d+'T'+t+':00').getTime()<=Date.now(); }
+function dayHasFreeSlots(iso){
+  const dow = new Date(iso+'T12:00').getDay();
+  if(!weekHours[dow]) return false; // closed day
+  return allSlots(iso).some(t=>!taken(iso,t)&&!isPast(iso,t));
+}
 function pretty(iso){ return new Date(iso+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}); }
 function money(n){ return '£'+(Math.round(n*100)/100).toFixed(2).replace(/\.00$/,''); }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function show(v){
-  if((v==='diary' || v==='money' || v==='settings') && !isBarber){ v='book'; }
+  if((v==='diary'||v==='money'||v==='settings')&&!isBarber){ v='book'; }
   ['book','mine','diary','money','settings','login'].forEach(n=>{
-    const view = document.getElementById('view-'+n);
-    const tab  = document.getElementById('tab-'+n);
-    if(view) view.classList.toggle('hide', n!==v);
-    if(tab)  tab.classList.toggle('on', n===v);
+    const view=document.getElementById('view-'+n);
+    const tab=document.getElementById('tab-'+n);
+    if(view) view.classList.toggle('hide',n!==v);
+    if(tab)  tab.classList.toggle('on',n===v);
   });
-  if(v==='diary') fillBarberForm();
-  if(v==='settings') fillHourSelects();
+  if(v==='diary')    fillBarberForm();
+  if(v==='settings') fillWeekHourSelects();
 }
 function flash(m){
   const f=document.getElementById('flash'); f.textContent=m; f.classList.remove('hide');
@@ -515,247 +590,224 @@ function flash(m){
 function pickDay(iso){ if(!dayHasFreeSlots(iso)) return; dayPick=iso; timePick=null; render(); }
 function pickTime(t){ timePick=t; render(); }
 
-let curStep = 1;
-function slotLine(){
-  return timePick ? '<b>'+esc(pretty(dayPick))+'</b> at <b>'+esc(timePick)+'</b>' : '';
-}
+/* ---------- step wizard ---------- */
+let curStep=1;
+function slotLine(){ return timePick?'<b>'+esc(pretty(dayPick))+'</b> at <b>'+esc(timePick)+'</b>':''; }
 function goStep(n){
-  if(n===2 && !timePick) return flash('Pick a time slot first.');
+  if(n===2&&!timePick) return flash('Pick a time slot first.');
   if(n===3){
-    const name = document.getElementById('b-name').value.trim();
-    const phone= document.getElementById('b-phone').value.trim();
-    const want = document.getElementById('b-want').value.trim();
+    const name=document.getElementById('b-name').value.trim();
+    const phone=document.getElementById('b-phone').value.trim();
+    const want=document.getElementById('b-want').value.trim();
     if(!want)  return flash('Describe the cut you want.');
     if(!name)  return flash('Add your name.');
     if(!phone) return flash('Add a phone number.');
   }
-  curStep = n;
-  [1,2,3].forEach(s=>document.getElementById('step'+s).classList.toggle('hide', s!==n));
+  curStep=n;
+  [1,2,3].forEach(s=>document.getElementById('step'+s).classList.toggle('hide',s!==n));
   document.querySelectorAll('#steps .step').forEach(el=>{
-    const s = +el.dataset.s;
-    el.classList.toggle('on', s===n);
-    el.classList.toggle('done', s<n);
+    const s=+el.dataset.s;
+    el.classList.toggle('on',s===n);
+    el.classList.toggle('done',s<n);
   });
-  const want = document.getElementById('b-want').value.trim();
-  document.getElementById('chosen2').innerHTML = 'Slot: ' + slotLine();
-  document.getElementById('chosen3').innerHTML = 'Slot: ' + slotLine() +
-    '<br>Cut: <b>' + (want?esc(want):'—') + '</b>' +
-    '<br>Price: <b>' + priceLabel() + '</b>';
-  const pt = document.getElementById('pay-total'); if(pt) pt.textContent = priceLabel();
-  const cb = document.getElementById('confirm-btn');
-  if(cb) cb.textContent = PRICE>0 ? 'Confirm booking — pay '+money(PRICE)+' on the day' : 'Confirm booking';
+  const want=document.getElementById('b-want').value.trim();
+  document.getElementById('chosen2').innerHTML='Slot: '+slotLine();
+  document.getElementById('chosen3').innerHTML='Slot: '+slotLine()+
+    '<br>Cut: <b>'+(want?esc(want):'—')+'</b>'+
+    '<br>Price: <b>'+priceLabel()+'</b>';
+  const pt=document.getElementById('pay-total'); if(pt) pt.textContent=priceLabel();
+  const cb=document.getElementById('confirm-btn');
+  if(cb) cb.textContent=PRICE>0?'Confirm booking — pay '+money(PRICE)+' on the day':'Confirm booking';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function startOver(){
   document.getElementById('confirm-card').classList.add('hide');
   document.getElementById('steps').classList.remove('hide');
-  resetTryon();
-  timePick=null;
-  goStep(1);
-  render();
+  resetTryon(); timePick=null; goStep(1); render();
 }
 
+/* ---------- selfie / AI preview ---------- */
 function pickSelfie(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e=>{
-    const img = new Image();
-    img.onload = ()=>{
-      const max = 1024;
-      let w = img.width, h = img.height;
-      if(w > h && w > max){ h = Math.round(h*max/w); w = max; }
-      else if(h >= w && h > max){ w = Math.round(w*max/h); h = max; }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      selfieData = c.toDataURL('image/jpeg', 0.85);
-      const box = document.getElementById('selfie-preview');
-      box.innerHTML = '<img src="'+selfieData+'" alt="your selfie">';
+  const file=input.files&&input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=1024; let w=img.width,h=img.height;
+      if(w>h&&w>max){h=Math.round(h*max/w);w=max;}
+      else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      selfieData=c.toDataURL('image/jpeg',0.85);
+      const box=document.getElementById('selfie-preview');
+      box.innerHTML='<img src="'+selfieData+'" alt="your selfie">';
       box.classList.remove('hide');
-      document.getElementById('selfie-pick-btn').textContent = 'Choose a different selfie';
-      document.getElementById('tryon-btn').style.display = 'block';
-      document.getElementById('tryon-out').innerHTML = '';
-      tryonUrl = null;
+      document.getElementById('selfie-pick-btn').textContent='Choose a different selfie';
+      document.getElementById('tryon-btn').style.display='block';
+      document.getElementById('tryon-out').innerHTML='';
+      tryonUrl=null;
     };
-    img.src = e.target.result;
+    img.src=e.target.result;
   };
   reader.readAsDataURL(file);
 }
-
 async function tryOn(){
-  const desc = document.getElementById('b-want').value.trim();
+  const desc=document.getElementById('b-want').value.trim();
   if(!desc)       return flash('Describe the cut above first, then try it on.');
   if(!selfieData) return flash('Add a selfie first.');
-  const btn = document.getElementById('tryon-btn');
-  const out = document.getElementById('tryon-out');
-  btn.disabled = true;
-  const original = btn.textContent;
-  btn.innerHTML = '<span class="spin"></span>Making your preview…';
-  out.innerHTML = '<div class="tryon-note">This takes a few seconds…</div>';
-  tryonUrl = null;
+  const btn=document.getElementById('tryon-btn');
+  const out=document.getElementById('tryon-out');
+  btn.disabled=true; const orig=btn.textContent;
+  btn.innerHTML='<span class="spin"></span>Making your preview…';
+  out.innerHTML='<div class="tryon-note">This takes a few seconds…</div>';
+  tryonUrl=null;
   try{
-    const r = await fetch('/api/tryon', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ image:selfieData, prompt:desc })
-    });
-    const data = await r.json().catch(()=>({}));
-    if(r.ok && data.url){
-      tryonUrl = data.url;
-      out.innerHTML =
-        '<img src="'+data.url+'" alt="you with the new cut">' +
-        '<div class="tryon-note">Not quite right? Tweak the words above and tap "Show me the cut" again.</div>';
+    const r=await fetch('/api/tryon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:selfieData,prompt:desc})});
+    const data=await r.json().catch(()=>({}));
+    if(r.ok&&data.url){
+      tryonUrl=data.url;
+      out.innerHTML='<img src="'+data.url+'" alt="you with the new cut"><div class="tryon-note">Not quite right? Tweak the words above and tap "Show me the cut" again.</div>';
     } else {
-      out.innerHTML = '<div class="tryon-note">'+esc(data.error || 'Could not make a preview right now. You can still book — the preview is just for fun.')+'</div>';
+      out.innerHTML='<div class="tryon-note">'+esc(data.error||'Could not make a preview right now. You can still book — the preview is just for fun.')+'</div>';
     }
   }catch(e){
-    out.innerHTML = '<div class="tryon-note">Preview isn\'t reachable right now. You can still book as normal.</div>';
+    out.innerHTML='<div class="tryon-note">Preview isn\'t reachable right now. You can still book as normal.</div>';
   }
-  btn.disabled = false;
-  btn.textContent = original;
+  btn.disabled=false; btn.textContent=orig;
 }
-
 function resetTryon(){
-  selfieData = null;
-  tryonUrl = null;
-  const inp = document.getElementById('selfie-input'); if(inp) inp.value = '';
-  const prev = document.getElementById('selfie-preview'); if(prev){ prev.innerHTML=''; prev.classList.add('hide'); }
-  const out = document.getElementById('tryon-out'); if(out) out.innerHTML = '';
-  const pick = document.getElementById('selfie-pick-btn'); if(pick) pick.textContent = 'Add a selfie';
-  const tb = document.getElementById('tryon-btn'); if(tb) tb.style.display = 'none';
+  selfieData=null; tryonUrl=null;
+  const inp=document.getElementById('selfie-input'); if(inp) inp.value='';
+  const prev=document.getElementById('selfie-preview'); if(prev){prev.innerHTML='';prev.classList.add('hide');}
+  const out=document.getElementById('tryon-out'); if(out) out.innerHTML='';
+  const pick=document.getElementById('selfie-pick-btn'); if(pick) pick.textContent='Add a selfie';
+  const tb=document.getElementById('tryon-btn'); if(tb) tb.style.display='none';
 }
 
+/* ---------- booking ---------- */
 async function book(){
-  const name  = document.getElementById('b-name').value.trim();
-  const phone = document.getElementById('b-phone').value.trim();
-  const want  = document.getElementById('b-want').value.trim();
+  const name=document.getElementById('b-name').value.trim();
+  const phone=document.getElementById('b-phone').value.trim();
+  const want=document.getElementById('b-want').value.trim();
   if(!want)     return flash('Describe the cut you want.');
   if(!timePick) return flash('Pick a time slot.');
   if(!name)     return flash('Add your name.');
   if(!phone)    return flash('Add a phone number.');
-  if(isPast(dayPick,timePick)){ flash('That time has passed. Pick a later slot.'); render(); return; }
-  if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
+  if(isPast(dayPick,timePick)){flash('That time has passed. Pick a later slot.');render();return;}
+  if(taken(dayPick,timePick)){flash('Sorry, that slot just went. Pick another.');render();return;}
   await pullBookings();
-  if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
-  const rec = { id:Date.now(), date:dayPick, time:timePick, name, phone, want, price:PRICE, done:false };
-  if(tryonUrl) rec.tryonurl = tryonUrl;
-  try{ await addBooking(rec); }
-  catch(e){ return flash('Could not save your booking. Check signal and try again.'); }
+  if(taken(dayPick,timePick)){flash('Sorry, that slot just went. Pick another.');render();return;}
+  const rec={id:Date.now(),date:dayPick,time:timePick,name,phone,want,price:PRICE,done:false};
+  if(tryonUrl) rec.tryonurl=tryonUrl;
+  try{ await addBooking(rec); }catch(e){ return flash('Could not save your booking. Check signal and try again.'); }
   await pullBookings();
-  const msg =
-    'NEW BOOKING — Cut Book\n-----------------------\n' +
-    'When:  ' + pretty(dayPick) + ' at ' + timePick + '\n' +
-    'Name:  ' + name + '\nPhone: ' + phone + '\n' +
-    'Cut:   ' + want + '\n' +
-    'Price: ' + priceLabel();
-  document.getElementById('receipt').textContent = msg;
+  const msg='NEW BOOKING — Cut Book\n-----------------------\n'+
+    'When:  '+pretty(dayPick)+' at '+timePick+'\n'+
+    'Name:  '+name+'\nPhone: '+phone+'\n'+
+    'Cut:   '+want+'\nPrice: '+priceLabel();
+  document.getElementById('receipt').textContent=msg;
   [1,2,3].forEach(s=>document.getElementById('step'+s).classList.add('hide'));
   document.getElementById('steps').classList.add('hide');
   document.getElementById('confirm-card').classList.remove('hide');
-  mineDigits = digits(phone);
-  document.getElementById('mine-phone').value = phone;
+  mineDigits=digits(phone);
+  document.getElementById('mine-phone').value=phone;
   document.getElementById('b-name').value='';
   document.getElementById('b-phone').value='';
   document.getElementById('b-want').value='';
-  resetTryon();
-  timePick=null;
-  flash('Booked in. See you then.');
-  render();
+  resetTryon(); timePick=null;
+  flash('Booked in. See you then.'); render();
 }
 function copyReceipt(){
   navigator.clipboard.writeText(document.getElementById('receipt').textContent)
-    .then(()=>flash('Message copied.'), ()=>flash('Copy failed — select the text instead.'));
+    .then(()=>flash('Message copied.'),()=>flash('Copy failed — select the text instead.'));
 }
 async function markDone(id){
-  const b = bookings.find(x=>x.id===id);
-  if(!b) return;
-  try{ await patchBooking(id, { done:true, paidon:new Date().toISOString() }); }
+  const b=bookings.find(x=>x.id===id); if(!b) return;
+  try{ await patchBooking(id,{done:true,paidon:new Date().toISOString()}); }
   catch(e){ return flash('Could not update. Try again.'); }
   await pullBookings();
-  flash(PRICE>0 ? 'Done — '+money(PRICE)+' in the till.' : 'Cut marked as done.'); render();
+  flash(PRICE>0?'Done — '+money(PRICE)+' in the till.':'Cut marked as done.'); render();
 }
 async function cancel(id){
-  try{ await removeBooking(id); }
-  catch(e){ return flash('Could not remove. Try again.'); }
+  try{ await removeBooking(id); }catch(e){ return flash('Could not remove. Try again.'); }
   await pullBookings(); flash('Booking removed.'); render();
 }
 
+/* ---------- my bookings ---------- */
 function digits(s){ return String(s).replace(/\D/g,''); }
 function findMine(){
-  mineDigits = digits(document.getElementById('mine-phone').value);
-  if(mineDigits.length < 5) return flash('Enter the phone number you booked with.');
+  mineDigits=digits(document.getElementById('mine-phone').value);
+  if(mineDigits.length<5) return flash('Enter the phone number you booked with.');
   renderMine();
 }
 function renderMine(){
-  const box = document.getElementById('mine-box');
-  if(!mineDigits){ box.innerHTML=''; return; }
-  const list = bookings.filter(b=>digits(b.phone)===mineDigits)
-                       .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  box.innerHTML = list.length ? list.map(b=>`
+  const box=document.getElementById('mine-box');
+  if(!mineDigits){box.innerHTML='';return;}
+  const list=bookings.filter(b=>digits(b.phone)===mineDigits)
+                     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  box.innerHTML=list.length?list.map(b=>`
     <div class="item">
       <div class="when">${esc(pretty(b.date))} · ${esc(b.time)}</div>
       <div class="note">"${esc(b.want)}"</div>
-      <div class="note">${b.done ? 'Done ✓' : 'Booked · ' + (PRICE>0 ? money(PRICE)+' on the day' : 'free')}</div>
-      ${b.done ? '' : `<button class="del" onclick="clientCancel(${b.id})">${b._confirm?'Tap again to confirm cancel':'Cancel this booking'}</button>`}
+      <div class="note">${b.done?'Done ✓':'Booked · '+(PRICE>0?money(PRICE)+' on the day':'free')}</div>
+      ${b.done?'':` <button class="del" onclick="clientCancel(${b.id})">${b._confirm?'Tap again to confirm cancel':'Cancel this booking'}</button>`}
     </div>`).join('')
-    : '<div class="empty"><span class="big-e">Nothing here</span>No bookings under that number. Check the digits and try again.</div>';
+    :'<div class="empty"><span class="big-e">Nothing here</span>No bookings under that number. Check the digits and try again.</div>';
 }
 async function clientCancel(id){
-  const b = bookings.find(x=>x.id===id);
-  if(!b || digits(b.phone)!==mineDigits) return;
+  const b=bookings.find(x=>x.id===id);
+  if(!b||digits(b.phone)!==mineDigits) return;
   if(b._confirm){
-    try{ await removeBooking(id); }
-    catch(e){ return flash('Could not cancel. Try again.'); }
+    try{ await removeBooking(id); }catch(e){ return flash('Could not cancel. Try again.'); }
     await pullBookings(); flash('Your booking was cancelled.'); renderMine(); render();
   } else {
-    b._confirm = true;
-    renderMine();
-    setTimeout(()=>{ if(b){ b._confirm=false; renderMine(); } }, 4000);
+    b._confirm=true; renderMine();
+    setTimeout(()=>{ if(b){b._confirm=false;renderMine();} },4000);
   }
 }
 
+/* ---------- render ---------- */
 function render(){
-  const allDays = nextDays();
-  if(!dayPick || !dayHasFreeSlots(dayPick)){
-    const first = allDays.find(d=>dayHasFreeSlots(d.iso));
-    if(first) dayPick = first.iso;
+  const allDays=nextDays();
+  if(!dayPick||!dayHasFreeSlots(dayPick)){
+    const first=allDays.find(d=>dayHasFreeSlots(d.iso));
+    if(first) dayPick=first.iso;
   }
-  document.getElementById('day-box').innerHTML = allDays.map(d=>{
-    const free = dayHasFreeSlots(d.iso);
+  document.getElementById('day-box').innerHTML=allDays.map(d=>{
+    const free=dayHasFreeSlots(d.iso);
     return `<button class="day ${dayPick===d.iso?'on':''} ${free?'':'off'}" ${free?'':'disabled'} onclick="pickDay('${d.iso}')">
       <small>${d.dow}</small><b>${d.num}</b><small>${d.mon}</small></button>`;
   }).join('');
 
-  document.getElementById('slot-box').innerHTML = allSlots().map(t=>{
-    const off = taken(dayPick,t) || isPast(dayPick,t);
+  document.getElementById('slot-box').innerHTML=allSlots(dayPick).map(t=>{
+    const off=taken(dayPick,t)||isPast(dayPick,t);
     return `<button class="slot ${off?'taken':''} ${timePick===t?'on':''}" ${off?'disabled':''} onclick="pickTime('${t}')">${t}</button>`;
   }).join('');
 
-  const up = bookings.filter(b=>!b.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  document.getElementById('diary-box').innerHTML = up.length ? up.map(b=>`
+  const up=bookings.filter(b=>!b.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  document.getElementById('diary-box').innerHTML=up.length?up.map(b=>`
     <div class="item">
       <div class="when">${esc(pretty(b.date))} · ${esc(b.time)}</div>
       <div class="name">${esc(b.name)} — ${esc(b.phone)}</div>
       <div class="note">"${esc(b.want)}"</div>
-      ${b.tryonurl ? `<img src="${esc(b.tryonurl)}" alt="AI cut preview" class="preview-thumb">` : ''}
-      <button class="del" onclick="markDone(${b.id})">Mark as done${PRICE>0 ? " (+"+money(PRICE)+")" : ""}</button> ·
+      ${b.tryonurl?`<img src="${esc(b.tryonurl)}" alt="AI cut preview" class="preview-thumb">`:''}
+      <button class="del" onclick="markDone(${b.id})">Mark as done${PRICE>0?' (+'+money(PRICE)+')':''}</button> ·
       <button class="del" onclick="cancel(${b.id})">Cancel</button>
-    </div>`).join('') : '<div class="empty"><span class="big-e">Chair\'s empty</span>Share your link and bookings will land here.</div>';
+    </div>`).join(''):'<div class="empty"><span class="big-e">Chair\'s empty</span>Share your link and bookings will land here.</div>';
 
-  const done = bookings.filter(b=>b.done).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  document.getElementById('done-box').innerHTML = done.length ? done.slice(0,20).map(b=>`
+  const done=bookings.filter(b=>b.done).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('done-box').innerHTML=done.length?done.slice(0,20).map(b=>`
     <div class="item">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <span class="name">${esc(b.name)}</span><span class="money">${money(PRICE)}</span></div>
       <div class="note">${esc(pretty(b.date))} · ${esc(b.time)} · ${esc(b.want)}</div>
       <button class="del" onclick="cancel(${b.id})">Delete</button>
-    </div>`).join('') : '<div class="empty"><span class="big-e">No cuts done yet</span>Tap "Mark as done" on a booking after you finish it.</div>';
+    </div>`).join(''):'<div class="empty"><span class="big-e">No cuts done yet</span>Tap "Mark as done" on a booking after you finish it.</div>';
 
-  const now=Date.now(), day=86400000, today=new Date().toDateString();
+  const now=Date.now(),day=86400000,today=new Date().toDateString();
   let t=0,w=0,all=0;
   done.forEach(b=>{
-    const when=new Date(b.paidon || (b.date+'T12:00'));
+    const when=new Date(b.paidon||(b.date+'T12:00'));
     all+=PRICE;
     if(when.toDateString()===today) t+=PRICE;
     if(now-when.getTime()<7*day) w+=PRICE;
@@ -764,15 +816,15 @@ function render(){
   document.getElementById('m-week').textContent=money(w);
   document.getElementById('m-all').textContent=money(all);
   document.getElementById('m-count').textContent=done.length;
-  const sub = document.getElementById('subline');
-  if(sub) sub.textContent = PRICE>0 ? 'Book your cut — '+money(PRICE)+', cash on the day' : 'Book your cut — free right now';
-  const pin = document.getElementById('price-input');
-  if(pin && document.activeElement!==pin) pin.value = PRICE>0 ? PRICE : '';
-  const pnow = document.getElementById('price-now');
-  if(pnow) pnow.textContent = PRICE>0 ? 'Cuts are currently '+money(PRICE)+'.' : 'Cuts are currently free.';
+  const sub=document.getElementById('subline');
+  if(sub) sub.textContent=PRICE>0?'Book your cut — '+money(PRICE)+', cash on the day':'Book your cut — free right now';
+  const pin=document.getElementById('price-input');
+  if(pin&&document.activeElement!==pin) pin.value=PRICE>0?PRICE:'';
+  const pnow=document.getElementById('price-now');
+  if(pnow) pnow.textContent=PRICE>0?'Cuts are currently '+money(PRICE)+'.':'Cuts are currently free.';
   renderMine();
 }
-document.getElementById('pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submitPin(); });
+document.getElementById('pin-input').addEventListener('keydown',e=>{ if(e.key==='Enter') submitPin(); });
 load();
 </script>
 </body>
