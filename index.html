@@ -16,7 +16,6 @@
     radial-gradient(1200px 600px at 50% -200px, #1B3149 0%, var(--ink) 60%);
     background-attachment:fixed;color:var(--porcelain);padding:0 0 48px;-webkit-font-smoothing:antialiased}
   .wrap{max-width:560px;margin:0 auto;padding:0 16px}
-  /* barber pole that turns */
   .pole{height:10px;overflow:hidden}
   .pole i{display:block;height:100%;width:200%;
     background:repeating-linear-gradient(115deg,var(--red) 0 14px,var(--porcelain) 14px 28px,#2C4F73 28px 42px,var(--porcelain) 42px 56px);
@@ -69,6 +68,8 @@
   .day.on{border-color:var(--brass);background:#1C3348}
   .day small{display:block;font-size:11px;color:var(--chrome);text-transform:uppercase;letter-spacing:.06em}
   .day.on small{color:var(--brass)}
+  .day.off{opacity:.32;text-decoration:line-through;cursor:not-allowed}
+  .day.off:hover{border-color:var(--line)}
   .day b{font-family:'Oswald',sans-serif;font-size:20px}
   .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px;margin-top:6px}
   .slot{padding:12px 0;border:1px solid var(--line);border-radius:9px;background:#0C1620;color:var(--porcelain);font-family:'IBM Plex Mono',monospace;font-size:14px;cursor:pointer;transition:border-color .12s,background .12s,transform .06s}
@@ -93,7 +94,6 @@
   .price-opt.on{border-color:var(--brass);background:var(--brass);color:var(--ink)}
   .price-opt small{display:block;font-family:'Inter',sans-serif;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--chrome);margin-top:3px}
   .price-opt.on small{color:var(--ink)}
-  /* selfie haircut preview */
   .tryon{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#0C1620}
   .tryon-head{display:flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--brass)}
   .tryon-head small{font-family:'Inter',sans-serif;letter-spacing:.03em;text-transform:none;color:var(--chrome);font-size:11px;font-weight:600}
@@ -118,10 +118,8 @@
   <header>
     <div class="logo">
       <svg class="emblem" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <!-- outer badge ring -->
         <circle cx="50" cy="50" r="47" fill="#0C1620" stroke="var(--brass)" stroke-width="2.5"/>
         <circle cx="50" cy="50" r="41" fill="none" stroke="var(--brass)" stroke-width="1" stroke-opacity="0.5"/>
-        <!-- barber pole in the middle -->
         <rect x="44" y="24" width="12" height="52" rx="6" fill="#0C1620" stroke="var(--porcelain)" stroke-width="1.5"/>
         <clipPath id="poleClip"><rect x="44" y="24" width="12" height="52" rx="6"/></clipPath>
         <g clip-path="url(#poleClip)">
@@ -132,7 +130,6 @@
             <rect x="28" y="16" width="6" height="90" transform="rotate(30 50 50)" fill="#2C4F73"/>
           </g>
         </g>
-        <!-- crossed clippers/scissors handles -->
         <path d="M22 34 L40 50" stroke="var(--brass)" stroke-width="3" stroke-linecap="round"/>
         <path d="M78 34 L60 50" stroke="var(--brass)" stroke-width="3" stroke-linecap="round"/>
         <circle cx="20" cy="32" r="4" fill="none" stroke="var(--brass)" stroke-width="3"/>
@@ -157,14 +154,12 @@
 
   <!-- CLIENT BOOKING -->
   <section id="view-book">
-    <!-- progress -->
     <div class="steps" id="steps">
       <div class="step on" data-s="1"><span class="dot">1</span>Book</div>
       <div class="step" data-s="2"><span class="dot">2</span>Describe</div>
       <div class="step" data-s="3"><span class="dot">3</span>Pay</div>
     </div>
 
-    <!-- STEP 1: BOOK A TIME -->
     <div class="card step-card" id="step1">
       <h2>Step 1 — Book a time</h2>
       <div class="hint">Pick a day, then a slot. Greyed-out times are already taken.</div>
@@ -173,7 +168,6 @@
       <button class="btn" onclick="goStep(2)">Next: describe my cut</button>
     </div>
 
-    <!-- STEP 2: DESCRIBE -->
     <div class="card step-card hide" id="step2">
       <h2>Step 2 — Describe your cut</h2>
       <div class="chosen" id="chosen2"></div>
@@ -181,7 +175,6 @@
       <div class="hint">Say it however you like — guard numbers, fade, line-up, beard.</div>
       <textarea id="b-want" placeholder="e.g. Skin fade up the sides, longer messy bit on top, sharp line-up, beard tidied"></textarea>
 
-      <!-- SEE IT ON ME (AI haircut preview) -->
       <div class="tryon">
         <div class="tryon-head">See it on you <small>optional</small></div>
         <div class="hint">Add a clear, front-facing selfie and we'll show the cut on you. Change the words above and try again as many times as you like.</div>
@@ -189,7 +182,6 @@
         <div id="selfie-preview" class="selfie-preview hide"></div>
         <button type="button" class="btn ghost" id="selfie-pick-btn" onclick="document.getElementById('selfie-input').click()">Add a selfie</button>
         <button type="button" class="btn" id="tryon-btn" onclick="tryOn()" style="display:none">Show me the cut</button>
-        <div class="hint" style="text-align:center;margin-top:8px">Just a rough guide to the style — not an exact photo of you.</div>
         <div id="tryon-out" class="tryon-out"></div>
       </div>
 
@@ -201,7 +193,6 @@
       <button class="btn ghost" onclick="goStep(1)">Back</button>
     </div>
 
-    <!-- STEP 3: PAY -->
     <div class="card step-card hide" id="step3">
       <h2>Step 3 — Pay</h2>
       <div class="chosen" id="chosen3"></div>
@@ -211,7 +202,6 @@
       <button class="btn ghost" onclick="goStep(2)">Back</button>
     </div>
 
-    <!-- DONE -->
     <div class="card hide" id="confirm-card">
       <h2>Booked ✓</h2>
       <div class="hint" style="margin-bottom:10px">Copy this and send it to your barber on WhatsApp or text, just to be safe.</div>
@@ -277,6 +267,16 @@
   <!-- SETTINGS -->
   <section id="view-settings" class="hide">
     <div class="card">
+      <h2>Opening hours</h2>
+      <div class="hint">Clients can only book slots between these times.</div>
+      <label for="open-sel">Open</label>
+      <select id="open-sel"></select>
+      <label for="close-sel">Close</label>
+      <select id="close-sel"></select>
+      <button class="btn" onclick="saveHours()">Save hours</button>
+    </div>
+
+    <div class="card">
       <h2>Price per cut</h2>
       <div class="hint">Type what you charge — any amount. Or make cuts free while you build up. Only changes new bookings from now on.</div>
       <label for="price-input">Price (£)</label>
@@ -297,7 +297,7 @@
     </div>
   </section>
 
-  <!-- BARBER LOGIN PANEL (inline, not a pop-up) -->
+  <!-- BARBER LOGIN -->
   <section id="view-login" class="hide">
     <div class="card">
       <h2 id="login-title">Barber login</h2>
@@ -311,7 +311,6 @@
 </div>
 
 <script>
-/* ===== Supabase (shared database) ===== */
 const SB_URL = 'https://hbnbbyndyedgihkkmlex.supabase.co';
 const SB_KEY = 'sb_publishable_XwGsqfSixY2vBFJuGdw1ag_zOnmOXK9';
 const SB = SB_URL + '/rest/v1/bookings';
@@ -319,25 +318,25 @@ const SB_HEAD = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Conten
 
 const PRICE_KEY = 'cutbook-price';
 const PIN_KEY = 'cutbook-pin';
-const OPEN = 9, CLOSE = 18, MINS = 30;
+const HOURS_KEY = 'cutbook-hours';
+let OPEN = 540, CLOSE = 1080;
+const MINS = 30;
 
-let PRICE = 0;                  // 0 = free for now; barber can switch to 5
+let PRICE = 0;
 let bookings = [];
 let dayPick = null, timePick = null;
-let barberPin = null;          // set on first barber login
-let isBarber = false;          // are we currently unlocked?
-let mineDigits = '';           // phone the client looked up
-let selfieData = null;         // the client's selfie (small JPEG) for the AI preview
+let barberPin = null;
+let isBarber = false;
+let mineDigits = '';
+let selfieData = null;
 
-/* show the price nicely: "Free" when 0, else "£5" */
 function priceLabel(n){ n = (n===undefined? PRICE : n); return n>0 ? money(n) : 'Free'; }
 
-/* ---------- database ---------- */
 async function pullBookings(){
   try{
     const r = await fetch(SB + '?select=*&order=date.asc,time.asc', { headers: SB_HEAD });
     if(r.ok){ bookings = await r.json(); }
-  }catch(e){ /* offline — keep what we have */ }
+  }catch(e){}
 }
 async function addBooking(b){
   const r = await fetch(SB, { method:'POST', headers:{...SB_HEAD, 'Prefer':'return=minimal'}, body: JSON.stringify(b) });
@@ -352,14 +351,16 @@ async function removeBooking(id){
   if(!r.ok) throw new Error('delete failed');
 }
 
-/* PIN + price stay on this device (they're your settings, not shared) */
 async function load(){
   try{ const p = localStorage.getItem(PIN_KEY); if(p) barberPin = p; }catch(e){}
   try{ const pr = localStorage.getItem(PRICE_KEY); if(pr!=null) PRICE = Number(pr)||0; }catch(e){}
+  try{ const h = JSON.parse(localStorage.getItem(HOURS_KEY)||'null');
+    if(h){ let o=h.open, c=h.close; if(o<48) o*=60; if(c<48) c*=60; if(o<c){ OPEN=o; CLOSE=c; } }
+  }catch(e){}
+  fillHourSelects();
   await pullBookings();
   if(!dayPick) dayPick = nextDays()[0].iso;
   render();
-  // keep the diary fresh: re-check the database every 20 seconds
   setInterval(async ()=>{ await pullBookings(); render(); }, 20000);
 }
 async function setPrice(n){
@@ -368,15 +369,34 @@ async function setPrice(n){
   flash(PRICE>0 ? 'Price set to '+money(PRICE)+'.' : 'Cuts are now free.');
   render();
 }
-// barber typed a custom price in Settings
 function saveCustomPrice(){
   const v = document.getElementById('price-input').value.trim();
   const n = Number(v);
   if(v==='' || isNaN(n) || n<0) return flash('Type a number, like 10.');
   setPrice(n);
 }
+function hourLabel(mins){ return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+function fillHourSelects(){
+  const os=document.getElementById('open-sel'), cs=document.getElementById('close-sel');
+  if(!os||!cs) return;
+  let oo='', co='';
+  for(let m=360;m<=1350;m+=30) oo+=`<option value="${m}">${hourLabel(m)}</option>`;
+  for(let m=390;m<=1380;m+=30) co+=`<option value="${m}">${hourLabel(m)}</option>`;
+  os.innerHTML=oo; cs.innerHTML=co;
+  os.value=OPEN; cs.value=CLOSE;
+}
+function saveHours(){
+  const o=Number(document.getElementById('open-sel').value);
+  const c=Number(document.getElementById('close-sel').value);
+  if(isNaN(o)||isNaN(c)) return flash('Pick both times.');
+  if(c<=o) return flash('Closing time must be after opening.');
+  OPEN=o; CLOSE=c;
+  try{ localStorage.setItem(HOURS_KEY, JSON.stringify({open:o,close:c})); }catch(e){}
+  flash('Open '+hourLabel(o)+' to '+hourLabel(c)+'.');
+  render();
+  fillBarberForm();
+}
 
-/* ---------- barber books for a phoned-in client ---------- */
 function fillBarberForm(){
   const daySel = document.getElementById('ba-day');
   if(!daySel) return;
@@ -433,7 +453,6 @@ async function changePin(){
   flash('PIN changed. Use it next time you log in.');
 }
 
-/* ---------- barber PIN lock (inline panel, no pop-ups) ---------- */
 function barberLogin(){
   const first = !barberPin;
   document.getElementById('login-title').textContent = first ? 'Set your barber PIN' : 'Barber login';
@@ -441,7 +460,6 @@ function barberLogin(){
     ? 'First time in — pick a PIN (4+ digits) only you know. You will need it every time.'
     : 'Enter your PIN to see all bookings.';
   document.getElementById('pin-input').value = '';
-  // show the login view (hide all others)
   ['book','mine','diary','money','settings','login'].forEach(n=>{
     const v = document.getElementById('view-'+n);
     if(v) v.classList.toggle('hide', n!=='login');
@@ -451,7 +469,6 @@ function barberLogin(){
 async function submitPin(){
   const val = document.getElementById('pin-input').value.trim();
   if(!barberPin){
-    // setting it for the first time
     if(val.length < 4) return flash('PIN must be at least 4 digits.');
     barberPin = val;
     try{ localStorage.setItem(PIN_KEY, barberPin); }catch(e){}
@@ -464,10 +481,8 @@ async function submitPin(){
 }
 function unlock(){
   isBarber = true;
-  // hide the client tabs — barber only sees barber stuff
   document.getElementById('tab-book').classList.add('hide');
   document.getElementById('tab-mine').classList.add('hide');
-  // show the barber tabs
   document.getElementById('tab-diary').classList.remove('hide');
   document.getElementById('tab-money').classList.remove('hide');
   document.getElementById('tab-settings').classList.remove('hide');
@@ -477,10 +492,8 @@ function unlock(){
 }
 function barberLogout(){
   isBarber = false;
-  // bring the client tabs back
   document.getElementById('tab-book').classList.remove('hide');
   document.getElementById('tab-mine').classList.remove('hide');
-  // hide the barber tabs
   document.getElementById('tab-diary').classList.add('hide');
   document.getElementById('tab-money').classList.add('hide');
   document.getElementById('tab-settings').classList.add('hide');
@@ -489,7 +502,6 @@ function barberLogout(){
   show('book');
 }
 
-/* ---------- helpers ---------- */
 function nextDays(){
   const out=[];
   for(let i=0;i<7;i++){
@@ -501,12 +513,14 @@ function nextDays(){
 }
 function allSlots(){
   const out=[];
-  for(let h=OPEN;h<CLOSE;h++) for(let m=0;m<60;m+=MINS)
-    out.push(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'));
+  for(let m=OPEN; m<CLOSE; m+=MINS)
+    out.push(String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'));
   return out;
 }
 function taken(d,t){ return bookings.some(b=>b.date===d && b.time===t); }
 function isPast(d,t){ return new Date(d+'T'+t+':00').getTime() <= Date.now(); }
+function dayHasFreeSlots(iso){ return allSlots().some(t=>!taken(iso,t) && !isPast(iso,t)); }
+function bookableDays(){ return nextDays().filter(d=>dayHasFreeSlots(d.iso)); }
 function pretty(iso){ return new Date(iso+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}); }
 function money(n){ return '£'+(Math.round(n*100)/100).toFixed(2).replace(/\.00$/,''); }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -519,21 +533,20 @@ function show(v){
     if(tab)  tab.classList.toggle('on', n===v);
   });
   if(v==='diary') fillBarberForm();
+  if(v==='settings') fillHourSelects();
 }
 function flash(m){
   const f=document.getElementById('flash'); f.textContent=m; f.classList.remove('hide');
   setTimeout(()=>f.classList.add('hide'),2800);
 }
-function pickDay(iso){ dayPick=iso; timePick=null; render(); }
+function pickDay(iso){ if(!dayHasFreeSlots(iso)) return; dayPick=iso; timePick=null; render(); }
 function pickTime(t){ timePick=t; render(); }
 
-/* ---------- step wizard ---------- */
 let curStep = 1;
 function slotLine(){
   return timePick ? '<b>'+esc(pretty(dayPick))+'</b> at <b>'+esc(timePick)+'</b>' : '';
 }
 function goStep(n){
-  // moving forward: check the current step is complete
   if(n===2 && !timePick) return flash('Pick a time slot first.');
   if(n===3){
     const name = document.getElementById('b-name').value.trim();
@@ -545,19 +558,16 @@ function goStep(n){
   }
   curStep = n;
   [1,2,3].forEach(s=>document.getElementById('step'+s).classList.toggle('hide', s!==n));
-  // progress bar
   document.querySelectorAll('#steps .step').forEach(el=>{
     const s = +el.dataset.s;
     el.classList.toggle('on', s===n);
     el.classList.toggle('done', s<n);
   });
-  // fill the summary lines
   const want = document.getElementById('b-want').value.trim();
   document.getElementById('chosen2').innerHTML = 'Slot: ' + slotLine();
   document.getElementById('chosen3').innerHTML = 'Slot: ' + slotLine() +
     '<br>Cut: <b>' + (want?esc(want):'—') + '</b>' +
     '<br>Price: <b>' + priceLabel() + '</b>';
-  // pay total + button wording match the current price
   const pt = document.getElementById('pay-total'); if(pt) pt.textContent = priceLabel();
   const cb = document.getElementById('confirm-btn');
   if(cb) cb.textContent = PRICE>0 ? 'Confirm booking — pay '+money(PRICE)+' on the day' : 'Confirm booking';
@@ -572,8 +582,6 @@ function startOver(){
   render();
 }
 
-/* ---------- selfie haircut preview ---------- */
-// read the chosen photo, shrink it (so it uploads fast), show a little preview
 function pickSelfie(input){
   const file = input.files && input.files[0];
   if(!file) return;
@@ -581,7 +589,6 @@ function pickSelfie(input){
   reader.onload = e=>{
     const img = new Image();
     img.onload = ()=>{
-      // shrink to max 1024px on the long side
       const max = 1024;
       let w = img.width, h = img.height;
       if(w > h && w > max){ h = Math.round(h*max/w); w = max; }
@@ -602,7 +609,6 @@ function pickSelfie(input){
   reader.readAsDataURL(file);
 }
 
-// send the selfie + the description to our own /api/tryon, show the result
 async function tryOn(){
   const desc = document.getElementById('b-want').value.trim();
   if(!desc)       return flash('Describe the cut above first, then try it on.');
@@ -625,7 +631,7 @@ async function tryOn(){
     if(r.ok && data.url){
       out.innerHTML =
         '<img src="'+data.url+'" alt="you with the new cut">' +
-        '<div class="tryon-note">A rough style guide only — the AI isn\'t an exact photo of you. Change the words above and tap “Show me the cut” again to tweak it.</div>';
+        '<div class="tryon-note">Not quite right? Tweak the words above and tap "Show me the cut" again.</div>';
     } else {
       out.innerHTML = '<div class="tryon-note">'+esc(data.error || 'Could not make a preview right now. You can still book — the preview is just for fun.')+'</div>';
     }
@@ -636,7 +642,6 @@ async function tryOn(){
   btn.textContent = original;
 }
 
-// wipe the selfie + preview so the next client starts clean
 function resetTryon(){
   selfieData = null;
   const inp = document.getElementById('selfie-input'); if(inp) inp.value = '';
@@ -646,7 +651,6 @@ function resetTryon(){
   const tb = document.getElementById('tryon-btn'); if(tb) tb.style.display = 'none';
 }
 
-/* ---------- booking ---------- */
 async function book(){
   const name  = document.getElementById('b-name').value.trim();
   const phone = document.getElementById('b-phone').value.trim();
@@ -658,7 +662,6 @@ async function book(){
   if(isPast(dayPick,timePick)){ flash('That time has passed. Pick a later slot.'); render(); return; }
   if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
 
-  // double-check against the live database so two people can't grab the same slot
   await pullBookings();
   if(taken(dayPick,timePick)){ flash('Sorry, that slot just went. Pick another.'); render(); return; }
 
@@ -675,16 +678,13 @@ async function book(){
     'Price: ' + priceLabel();
   document.getElementById('receipt').textContent = msg;
 
-  // hide the wizard steps + progress, show the done card
   [1,2,3].forEach(s=>document.getElementById('step'+s).classList.add('hide'));
   document.getElementById('steps').classList.add('hide');
   document.getElementById('confirm-card').classList.remove('hide');
 
-  // remember this phone so "My bookings" works straight away for them
   mineDigits = digits(phone);
   document.getElementById('mine-phone').value = phone;
 
-  // clear the fields for next time
   document.getElementById('b-name').value='';
   document.getElementById('b-phone').value='';
   document.getElementById('b-want').value='';
@@ -711,7 +711,6 @@ async function cancel(id){
   await pullBookings(); flash('Booking removed.'); render();
 }
 
-/* ---------- client: see only my own bookings (by phone) ---------- */
 function digits(s){ return String(s).replace(/\D/g,''); }
 function findMine(){
   mineDigits = digits(document.getElementById('mine-phone').value);
@@ -734,23 +733,27 @@ function renderMine(){
 }
 async function clientCancel(id){
   const b = bookings.find(x=>x.id===id);
-  if(!b || digits(b.phone)!==mineDigits) return;   // can only cancel your own
+  if(!b || digits(b.phone)!==mineDigits) return;
   if(b._confirm){
     try{ await removeBooking(id); }
     catch(e){ return flash('Could not cancel. Try again.'); }
     await pullBookings(); flash('Your booking was cancelled.'); renderMine(); render();
   } else {
-    b._confirm = true;               // first tap: arm it
+    b._confirm = true;
     renderMine();
     setTimeout(()=>{ if(b){ b._confirm=false; renderMine(); } }, 4000);
   }
 }
 
-/* ---------- render ---------- */
 function render(){
-  document.getElementById('day-box').innerHTML = nextDays().map(d=>`
-    <button class="day ${dayPick===d.iso?'on':''}" onclick="pickDay('${d.iso}')">
-      <small>${d.dow}</small><b>${d.num}</b><small>${d.mon}</small></button>`).join('');
+  const allDays = nextDays();
+  const bookable = allDays.filter(d=>dayHasFreeSlots(d.iso));
+  if(bookable.length && (!dayPick || !dayHasFreeSlots(dayPick))) dayPick = bookable[0].iso;
+  document.getElementById('day-box').innerHTML = allDays.map(d=>{
+    const free = dayHasFreeSlots(d.iso);
+    return `<button class="day ${dayPick===d.iso?'on':''} ${free?'':'off'}" ${free?'':'disabled'} onclick="pickDay('${d.iso}')">
+      <small>${d.dow}</small><b>${d.num}</b><small>${d.mon}</small></button>`;
+  }).join('');
 
   document.getElementById('slot-box').innerHTML = allSlots().map(t=>{
     const off = taken(dayPick,t) || isPast(dayPick,t);
