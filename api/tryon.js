@@ -13,19 +13,19 @@ module.exports = async (req, res) => {
     const desc = (body.prompt || "").toString().trim();
     if (!image || !desc) return res.status(400).json({ error: "Need a photo and a description." });
 
-    // Did the client actually ask for facial hair?
-    const wantsFacialHair = /\b(beard|stubble|goatee|moustache|mustache|facial hair|soul patch|sideburn)\b/i.test(desc);
-    const beardRule = wantsFacialHair
-      ? "Give them the facial hair described in the request."
-      : "Keep the face COMPLETELY CLEAN SHAVEN. Do NOT add any beard, stubble, moustache or facial hair of any kind. If they already have facial hair, keep it exactly as it is now — do not add more.";
+    // Did the client actually mention facial hair? If not, we leave it 100% untouched.
+    const mentionsFacialHair = /\b(beard|stubble|goatee|moustache|mustache|facial hair|soul patch|sideburn|clean shaven|clean-shaven|shave)\b/i.test(desc);
+    const beardRule = mentionsFacialHair
+      ? "The request mentions facial hair, so adjust the facial hair to match what it asks for."
+      : "The request does NOT mention facial hair, so you MUST leave the facial hair EXACTLY as it appears in the original photo. If they have a beard, keep the exact same beard. If they are clean shaven, keep them clean shaven. Do not add, remove, thicken, thin, or reshape any facial hair at all.";
 
     const prompt =
-      "Restyle ONLY the hair on the head of the person in this photo to match this request: \"" + desc + "\". " +
-      "Keep the SAME person exactly: same face, same age (do not make them older or younger), " +
-      "same skin, same expression, same eyes, same clothing, same lighting and same background. " +
+      "You are editing a photo for a barber's haircut preview. Change ONLY the hair on top of the head to match this request: \"" + desc + "\". " +
+      "Everything else must stay IDENTICAL to the original photo: the same person, the same face, the same age, " +
+      "the same skin, the same glasses, the same expression, the same clothing, the same lighting and the same background. " +
       beardRule + " " +
-      "This is a realistic haircut preview for a barber, so change nothing except the hair on the head. " +
-      "Photorealistic, natural result.";
+      "Do not beautify, do not change their age, do not swap the person. Only the hair on the head changes. " +
+      "Photorealistic, natural, true to the original photo.";
 
     const auth = { "Authorization": "Key " + KEY, "Content-Type": "application/json" };
 
