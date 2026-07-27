@@ -1,7 +1,4 @@
 // api/tryon.js
-// Runs on Vercel so the secret key stays hidden.
-// Shows the actual fal.ai error so we can debug when things go wrong.
-
 const FAL_SUBMIT = "https://queue.fal.run/fal-ai/flux-pro/kontext";
 
 module.exports = async (req, res) => {
@@ -17,14 +14,16 @@ module.exports = async (req, res) => {
     if (!image || !desc) return res.status(400).json({ error: "Need a photo and a description." });
 
     const prompt =
-      "Change only the hair and beard of the person in this photo to this style: " +
-      desc +
-      ". Keep the exact same face, skin tone, lighting, camera angle and " +
-      "background. Make it photorealistic and natural-looking.";
+      "Restyle ONLY the hair of the person in this photo to match this request: \"" + desc + "\". " +
+      "Keep the SAME person exactly: same face, same age (do not make them look older or younger), " +
+      "same skin, same expression, same eyes, same clothing, same lighting and same background. " +
+      "Do NOT add a beard, moustache or any facial hair unless the request explicitly asks for it. " +
+      "If the request says no beard or clean shaven, make the face completely clean shaven. " +
+      "This is a realistic haircut preview for a barber, so change nothing except the hair. " +
+      "Photorealistic, natural result.";
 
     const auth = { "Authorization": "Key " + KEY, "Content-Type": "application/json" };
 
-    // 1) SUBMIT
     const submit = await fetch(FAL_SUBMIT, {
       method: "POST",
       headers: auth,
@@ -35,9 +34,7 @@ module.exports = async (req, res) => {
     try { job = JSON.parse(submitText); } catch (_) {}
 
     if (!submit.ok) {
-      return res.status(502).json({
-        error: "fal.ai said: " + submit.status + " — " + submitText.slice(0, 400)
-      });
+      return res.status(502).json({ error: "fal.ai said: " + submit.status + " — " + submitText.slice(0, 400) });
     }
 
     const statusUrl = job.status_url;
@@ -46,7 +43,6 @@ module.exports = async (req, res) => {
       return res.status(502).json({ error: "No job URLs in reply: " + submitText.slice(0, 300) });
     }
 
-    // 2) POLL for completion (up to ~45s)
     let finished = false;
     let lastStatus = "";
     for (let i = 0; i < 30 && !finished; i++) {
@@ -61,7 +57,6 @@ module.exports = async (req, res) => {
     }
     if (!finished) return res.status(504).json({ error: "Preview took too long. Last status: " + lastStatus });
 
-    // 3) FETCH result
     const out = await fetch(resultUrl, { headers: { "Authorization": "Key " + KEY } });
     const oj = await out.json().catch(() => ({}));
     const url = oj && oj.images && oj.images[0] && oj.images[0].url;
