@@ -194,6 +194,8 @@
       <input id="b-name" placeholder="e.g. Sam Wilson" autocomplete="name">
       <label for="b-phone">Phone number</label>
       <input id="b-phone" type="tel" placeholder="e.g. 07700 900123" autocomplete="tel">
+      <label for="b-email">Email address</label>
+      <input id="b-email" type="email" placeholder="e.g. sam@email.com" autocomplete="email">
       <button class="btn" onclick="goStep(3)">Next: pay</button>
       <button class="btn ghost" onclick="goStep(1)">Back</button>
     </div>
@@ -241,6 +243,8 @@
       <input id="ba-name" placeholder="Client's name" autocomplete="off">
       <label for="ba-phone">Phone</label>
       <input id="ba-phone" type="tel" placeholder="Their number" autocomplete="off">
+      <label for="ba-email">Email</label>
+      <input id="ba-email" type="email" placeholder="Their email" autocomplete="off">
       <label for="ba-want">Cut</label>
       <input id="ba-want" placeholder="What they want" autocomplete="off">
       <button class="btn" onclick="barberAdd()">Add booking</button>
@@ -476,6 +480,7 @@ async function barberAdd(){
   const time = document.getElementById('ba-time').value;
   const name = document.getElementById('ba-name').value.trim();
   const phone= document.getElementById('ba-phone').value.trim();
+  const email= document.getElementById('ba-email').value.trim();
   const want = document.getElementById('ba-want').value.trim();
   if(!date||!time) return flash('Pick a day and a free time.');
   if(!name)  return flash("Add the client's name.");
@@ -483,11 +488,12 @@ async function barberAdd(){
   if(!want)  return flash('Add what cut they want.');
   await pullBookings();
   if(taken(date,time)) return flash('That slot just went. Pick another time.');
-  const rec = {id:Date.now(),date,time,name,phone,want,price:PRICE,done:false};
+  const rec = {id:Date.now(),date,time,name,phone,email,want,price:PRICE,done:false};
   try{ await addBooking(rec); }catch(e){ return flash('Could not save. Check signal and try again.'); }
   await pullBookings();
   document.getElementById('ba-name').value='';
   document.getElementById('ba-phone').value='';
+  document.getElementById('ba-email').value='';
   document.getElementById('ba-want').value='';
   flash('Booking added.');
   fillBarberForm();
@@ -600,8 +606,11 @@ function goStep(n){
     const phone=document.getElementById('b-phone').value.trim();
     const want=document.getElementById('b-want').value.trim();
     if(!want)  return flash('Describe the cut you want.');
+    if(!wantIsValid(want)) return;
     if(!name)  return flash('Add your name.');
     if(!phone) return flash('Add a phone number.');
+    const email=document.getElementById('b-email').value.trim();
+    if(!email) return flash('Add your email address.');
   }
   curStep=n;
   [1,2,3].forEach(s=>document.getElementById('step'+s).classList.toggle('hide',s!==n));
@@ -684,20 +693,41 @@ function resetTryon(){
   const tb=document.getElementById('tryon-btn'); if(tb) tb.style.display='none';
 }
 
+/* ---------- services we don't offer ---------- */
+const ADDS_HAIR = /\b(extension|extensions|weave|weaves|wig|wigs|hair\s*piece|add\s*hair|adding\s*hair)\b/i;
+function wantIsValid(want){
+  if(ADDS_HAIR.test(want)){
+    flash('Sorry — this shop does cuts only. We don\'t do extensions, weaves, or wigs.');
+    return false;
+  }
+  return true;
+}
+
+/* ---------- running late Gmail ---------- */
+function runningLate(name, email){
+  if(!email){ flash('No email saved for this booking.'); return; }
+  const subject = encodeURIComponent('Running a little late — Cut Book');
+  const body = encodeURIComponent('Hi '+name+',\n\nYour barber is running a little late today — so sorry for the wait! Won\'t be long.\n\nSee you soon.');
+  window.open('https://mail.google.com/mail/?view=cm&to='+encodeURIComponent(email)+'&su='+subject+'&body='+body,'_blank');
+}
+
 /* ---------- booking ---------- */
 async function book(){
   const name=document.getElementById('b-name').value.trim();
   const phone=document.getElementById('b-phone').value.trim();
+  const email=document.getElementById('b-email').value.trim();
   const want=document.getElementById('b-want').value.trim();
-  if(!want)     return flash('Describe the cut you want.');
-  if(!timePick) return flash('Pick a time slot.');
+  if(!want)              return flash('Describe the cut you want.');
+  if(!wantIsValid(want)) return;
+  if(!timePick)          return flash('Pick a time slot.');
   if(!name)     return flash('Add your name.');
   if(!phone)    return flash('Add a phone number.');
+  if(!email)    return flash('Add your email address.');
   if(isPast(dayPick,timePick)){flash('That time has passed. Pick a later slot.');render();return;}
   if(taken(dayPick,timePick)){flash('Sorry, that slot just went. Pick another.');render();return;}
   await pullBookings();
   if(taken(dayPick,timePick)){flash('Sorry, that slot just went. Pick another.');render();return;}
-  const rec={id:Date.now(),date:dayPick,time:timePick,name,phone,want,price:PRICE,done:false};
+  const rec={id:Date.now(),date:dayPick,time:timePick,name,phone,email,want,price:PRICE,done:false};
   if(tryonUrl) rec.tryonurl=tryonUrl;
   try{ await addBooking(rec); }catch(e){ return flash('Could not save your booking. Check signal and try again.'); }
   await pullBookings();
@@ -713,6 +743,7 @@ async function book(){
   document.getElementById('mine-phone').value=phone;
   document.getElementById('b-name').value='';
   document.getElementById('b-phone').value='';
+  document.getElementById('b-email').value='';
   document.getElementById('b-want').value='';
   resetTryon(); timePick=null;
   flash('Booked in. See you then.'); render();
@@ -792,7 +823,8 @@ function render(){
       <div class="note">"${esc(b.want)}"</div>
       ${b.tryonurl?`<img src="${esc(b.tryonurl)}" alt="AI cut preview" class="preview-thumb">`:''}
       <button class="del" onclick="markDone(${b.id})">Mark as done${PRICE>0?' (+'+money(PRICE)+')':''}</button> ·
-      <button class="del" onclick="cancel(${b.id})">Cancel</button>
+      <button class="del" onclick="cancel(${b.id})">Cancel</button> ·
+      <button class="del" onclick="runningLate('${esc(b.name)}','${esc(b.email||'')}')">⏱ Running late? Email them</button>
     </div>`).join(''):'<div class="empty"><span class="big-e">Chair\'s empty</span>Share your link and bookings will land here.</div>';
 
   const done=bookings.filter(b=>b.done).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
