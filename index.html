@@ -865,10 +865,10 @@ async function runVis(){
 }
 
 /* ---------- services we don't offer ---------- */
-const ADDS_HAIR = /\b(extension|extensions|weave|weaves|wig|wigs|hair\s*piece|add\s*hair|adding\s*hair)\b/i;
+const ADDS_HAIR = /\b(extension|extensions|weave|weaves|wig|wigs|hair\s*piece|add\s*hair|adding\s*hair|ponytail|pony\s*tail|bun|man\s*bun|topknot|top\s*knot|braid|braids|dreadlock|dreadlocks|dreads|locs)\b/i;
 function wantIsValid(want){
   if(ADDS_HAIR.test(want)){
-    flash('Sorry — this shop does cuts only. We don\'t do extensions, weaves, or wigs.');
+    flash('Sorry — this shop does cuts only. We don\'t do ponytails, braids, extensions, weaves, or wigs.');
     return false;
   }
   return true;
