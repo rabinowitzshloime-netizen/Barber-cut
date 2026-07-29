@@ -96,6 +96,18 @@
   .selfie-preview img{max-width:130px;border-radius:9px;border:1px solid var(--line);display:block}
   .tryon-out{margin-top:12px}
   .tryon-out img{width:100%;border-radius:11px;border:1px solid var(--brass);display:block}
+  .cal-wrap{margin-top:8px}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .cal-nav b{font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--porcelain)}
+  .cal-nav button{background:transparent;border:1px solid var(--line);color:var(--chrome);border-radius:7px;padding:4px 12px;cursor:pointer;font-size:16px;line-height:1}
+  .cal-heads{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+  .cal-dh{text-align:center;font-size:10px;color:var(--chrome);letter-spacing:.05em;padding:2px 0;text-transform:uppercase}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;font-weight:600;border:1px solid transparent;transition:background .15s,border-color .15s}
+  .cal-cell.avail{border-color:var(--line);color:var(--porcelain);cursor:pointer}
+  .cal-cell.avail:hover{border-color:var(--brass);color:var(--brass)}
+  .cal-cell.on{background:var(--brass)!important;color:var(--ink)!important;border-color:var(--brass)!important}
+  .cal-cell.off{color:var(--line);font-weight:400}
   .vis-label{font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--brass);margin-bottom:8px}
   .style-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:4px}
   .style-tile{padding:11px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;text-align:center;transition:background .15s,border-color .15s}
@@ -159,6 +171,8 @@
       <h2>Step 1 — Book a time</h2>
       <div class="hint">Pick a day, then a slot. Greyed-out times are taken or the shop is closed.</div>
       <div class="days" id="day-box" style="margin-top:10px"></div>
+      <div style="text-align:center;margin-top:6px"><button class="btn ghost" id="more-days-btn" onclick="toggleMoreDays()" style="font-size:12px;padding:7px 16px">📅 Calendar</button></div>
+      <div id="cal-box" class="hide"></div>
       <div class="slots" id="slot-box" style="margin-top:8px"></div>
       <button class="btn" onclick="goStep(2)">Next: describe my cut</button>
     </div>
@@ -173,9 +187,9 @@
       <div class="tryon">
         <div class="tryon-head">See it on you <small>optional</small></div>
         <div class="hint">Add a clear, front-facing selfie and we'll show the cut on you. Change the words above and try again as many times as you like.</div>
-        <input id="selfie-input" type="file" accept="image/*" class="hide" onchange="pickSelfie(this)">
+        <input id="selfie-input" type="file" accept="image/*" capture="user" class="hide" onchange="pickSelfie(this)">
         <div id="selfie-preview" class="selfie-preview hide"></div>
-        <button type="button" class="btn ghost" id="selfie-pick-btn" onclick="document.getElementById('selfie-input').click()">Add a selfie</button>
+        <button type="button" class="btn ghost" id="selfie-pick-btn" onclick="document.getElementById('selfie-input').click()">📸 Take a photo</button>
         <button type="button" class="btn" id="tryon-btn" onclick="tryOn()" style="display:none">Show me the cut</button>
         <div id="tryon-out" class="tryon-out"></div>
       </div>
@@ -228,9 +242,9 @@
 
       <div style="margin-bottom:16px">
         <div class="vis-label">1. Add your selfie</div>
-        <input id="vis-file" type="file" accept="image/*" class="hide" onchange="visPickSelfie(this)">
+        <input id="vis-file" type="file" accept="image/*" capture="user" class="hide" onchange="visPickSelfie(this)">
         <div id="vis-selfie-box" class="selfie-preview hide"></div>
-        <button class="btn ghost" id="vis-pick-btn" onclick="document.getElementById('vis-file').click()">📷 Add selfie</button>
+        <button class="btn ghost" id="vis-pick-btn" onclick="document.getElementById('vis-file').click()">📸 Take a photo</button>
       </div>
 
       <div style="margin-bottom:16px">
@@ -479,7 +493,7 @@ function fillBarberForm(){
   const daySel = document.getElementById('ba-day');
   if(!daySel) return;
   const keep = daySel.value;
-  daySel.innerHTML = nextDays().map(d=>`<option value="${d.iso}">${d.dow} ${d.num} ${d.mon}</option>`).join('');
+  daySel.innerHTML = nextDays(28).filter(d=>{const dow=new Date(d.iso+'T12:00').getDay();return !!weekHours[dow];}).map(d=>`<option value="${d.iso}">${d.dow} ${d.num} ${d.mon}</option>`).join('');
   if(keep) daySel.value = keep;
   fillBarberTimes();
 }
@@ -567,12 +581,70 @@ function barberLogout(){
 }
 
 /* ---------- helpers ---------- */
-function nextDays(){
-  const out=[];
-  for(let i=0;i<7;i++){
-    const d=new Date(); d.setDate(d.getDate()+i);
-    out.push({iso:d.toISOString().slice(0,10), dow:i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short'}),
-              num:d.getDate(), mon:d.toLocaleDateString('en-GB',{month:'short'})});
+let showAllDays=false;
+let calYear=new Date().getFullYear(), calMon=new Date().getMonth();
+function toggleMoreDays(){
+  showAllDays=!showAllDays;
+  calYear=new Date().getFullYear(); calMon=new Date().getMonth();
+  const btn=document.getElementById('more-days-btn');
+  if(btn) btn.textContent=showAllDays?'✕ Close calendar':'📅 Calendar';
+  document.getElementById('cal-box').classList.toggle('hide',!showAllDays);
+  document.getElementById('day-box').classList.toggle('hide',showAllDays);
+  if(showAllDays) renderCalendar();
+}
+function calNav(dir){
+  calMon+=dir;
+  if(calMon>11){calMon=0;calYear++;}
+  if(calMon<0){calMon=11;calYear--;}
+  renderCalendar();
+}
+function renderCalendar(){
+  const box=document.getElementById('cal-box'); if(!box) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayIso=today.toISOString().slice(0,10);
+  const monthName=new Date(calYear,calMon,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  // first weekday of month (Mon=0)
+  let startDow=new Date(calYear,calMon,1).getDay(); startDow=(startDow+6)%7;
+  const daysInMonth=new Date(calYear,calMon+1,0).getDate();
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let cells='';
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const iso=`${calYear}-${String(calMon+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const date=new Date(iso+'T12:00');
+    const isPastDay=date<today;
+    const free=!isPastDay&&dayHasFreeSlots(iso);
+    const sel=dayPick===iso;
+    if(isPastDay){
+      cells+=`<div class="cal-cell off">${d}</div>`;
+    } else if(free){
+      cells+=`<div class="cal-cell avail${sel?' on':''}" onclick="pickDay('${iso}');renderCalendar()">${d}</div>`;
+    } else {
+      cells+=`<div class="cal-cell off">${d}</div>`;
+    }
+  }
+  box.innerHTML=`<div class="cal-wrap">
+    <div class="cal-nav">
+      <button onclick="calNav(-1)">‹</button>
+      <b>${monthName}</b>
+      <button onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-heads">${days.map(d=>`<div class="cal-dh">${d}</div>`).join('')}</div>
+    <div class="cal-grid">${cells}</div>
+  </div>`;
+}
+function nextDays(count){
+  /* Scan up to 56 calendar days, return first `count` days that have free slots */
+  const want=count||(showAllDays?28:7);
+  const out=[]; const today=new Date(); today.setHours(0,0,0,0);
+  for(let i=0;i<56&&out.length<want;i++){
+    const d=new Date(today); d.setDate(today.getDate()+i);
+    const iso=d.toISOString().slice(0,10);
+    const dow=d.getDay();
+    if(!weekHours[dow]) continue; // closed day — skip
+    if(!dayHasFreeSlots(iso)) continue; // fully booked or all past — skip
+    const label=i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short'});
+    out.push({iso, dow:label, num:d.getDate(), mon:d.toLocaleDateString('en-GB',{month:'short'})});
   }
   return out;
 }
@@ -903,9 +975,10 @@ function render(){
     const first=allDays.find(d=>dayHasFreeSlots(d.iso));
     if(first) dayPick=first.iso;
   }
-  document.getElementById('day-box').innerHTML=allDays.map(d=>{
-    const free=dayHasFreeSlots(d.iso);
-    return `<button class="day ${dayPick===d.iso?'on':''} ${free?'':'off'}" ${free?'':'disabled'} onclick="pickDay('${d.iso}')">
+  document.getElementById('day-box').classList.toggle('hide', showAllDays);
+  if(showAllDays){ renderCalendar(); } else
+  document.getElementById('day-box').innerHTML=allDays.filter(d=>dayHasFreeSlots(d.iso)).map(d=>{
+    return `<button class="day ${dayPick===d.iso?'on':''}" onclick="pickDay('${d.iso}')">
       <small>${d.dow}</small><b>${d.num}</b><small>${d.mon}</small></button>`;
   }).join('');
 
