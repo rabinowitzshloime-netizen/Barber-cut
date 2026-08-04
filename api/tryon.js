@@ -1,74 +1,70 @@
-// api/tryon.js
-const FAL_SUBMIT = "https://queue.fal.run/fal-ai/flux-pro/kontext";
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end();
 
-module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
+  const { image, prompt } = req.body || {};
+  if (!image || !prompt) return res.status(400).json({ error: 'Missing image or prompt' });
 
-  const KEY = process.env.FAL_KEY;
-  if (!KEY) return res.status(500).json({ error: "FAL_KEY missing in Vercel env vars." });
+  const FAL_KEY = process.env.FAL_KEY;
+  if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not set' });
+
+  // Detect if the client asked to change any facial features
+  const wantsBeardChange   = /beard|facial hair|moustache|mustache|stubble|goatee|sideburn/i.test(prompt);
+  const wantsSkinChange    = /skin tone|lighten|darken|complexion/i.test(prompt);
+  const wantsEyebrowChange = /eyebrow|brow/i.test(prompt);
+
+  const preserveNote =
+    (!wantsBeardChange   ? ' Keep the beard, stubble, and all facial hair exactly as in the photo — do not remove, add, or alter it.' : '') +
+    (!wantsSkinChange    ? ' Keep the skin tone and complexion exactly as in the photo — do not change it at all.' : '') +
+    (!wantsEyebrowChange ? ' Keep the eyebrows exactly as in the photo.' : '');
+
+  const fullPrompt =
+    `Change only the hairstyle of the person in this photo to: ${prompt}.` +
+    ` CRITICAL: This must look like the same real person — keep their face shape, facial features, eyes, nose, mouth, ears, and identity completely unchanged.` +
+    ` Only the hair on top of the head should change. The result must look like a real photograph.` +
+    preserveNote;
 
   try {
-    const body = req.body || {};
-    const image = body.image;
-    const desc = (body.prompt || "").toString().trim();
-    if (!image || !desc) return res.status(400).json({ error: "Need a photo and a description." });
-
-    /* Only mention beard if the client actually asked for it */
-    const wantsBeard = /beard|facial hair|moustache|mustache|stubble|goatee|sideburn/i.test(desc);
-
-    const prompt = wantsBeard
-      ? "Change only the hair and beard of the person in this photo to match this style: " +
-        desc +
-        ". Keep the exact same face, skin tone, lighting, camera angle and background. Make it photorealistic and natural-looking."
-      : "Change only the hair of the person in this photo to match this style: " +
-        desc +
-        ". Do not add, change, or remove any facial hair or beard — leave it exactly as it is. " +
-        "Keep the exact same face, skin tone, lighting, camera angle and background. Make it photorealistic and natural-looking.";
-
-    const auth = { "Authorization": "Key " + KEY, "Content-Type": "application/json" };
-
-    const submit = await fetch(FAL_SUBMIT, {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({ prompt: prompt, image_url: image })
+    // Submit request to fal.ai queue
+    const submitRes = await fetch('https://queue.fal.run/fal-ai/flux-kontext/requests', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${FAL_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image_url: image,
+        prompt: fullPrompt,
+      }),
     });
-    const submitText = await submit.text();
-    let job = {};
-    try { job = JSON.parse(submitText); } catch (_) {}
 
-    if (!submit.ok) {
-      return res.status(502).json({
-        error: "fal.ai said: " + submit.status + " — " + submitText.slice(0, 400)
+    if (!submitRes.ok) {
+      const err = await submitRes.text();
+      return res.status(502).json({ error: 'fal.ai submit failed: ' + err });
+    }
+
+    const { request_id } = await submitRes.json();
+
+    // Poll for result (up to 90 seconds)
+    for (let i = 0; i < 45; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const pollRes = await fetch(`https://queue.fal.run/fal-ai/flux-kontext/requests/${request_id}`, {
+        headers: { 'Authorization': `Key ${FAL_KEY}` },
       });
-    }
-
-    const statusUrl = job.status_url;
-    const resultUrl = job.response_url;
-    if (!statusUrl || !resultUrl) {
-      return res.status(502).json({ error: "No job URLs in reply: " + submitText.slice(0, 300) });
-    }
-
-    let finished = false;
-    let lastStatus = "";
-    for (let i = 0; i < 30 && !finished; i++) {
-      await new Promise(r => setTimeout(r, 1500));
-      const s = await fetch(statusUrl, { headers: { "Authorization": "Key " + KEY } });
-      const sj = await s.json().catch(() => ({}));
-      lastStatus = sj.status || "?";
-      if (lastStatus === "COMPLETED") finished = true;
-      else if (lastStatus === "FAILED" || lastStatus === "ERROR") {
-        return res.status(502).json({ error: "fal.ai failed: " + JSON.stringify(sj).slice(0, 400) });
+      if (!pollRes.ok) continue;
+      const data = await pollRes.json();
+      if (data.status === 'COMPLETED') {
+        const url = data.output?.images?.[0]?.url || data.output?.image?.url;
+        if (url) return res.status(200).json({ url });
+        return res.status(502).json({ error: 'No image in response' });
+      }
+      if (data.status === 'FAILED') {
+        return res.status(502).json({ error: 'fal.ai generation failed' });
       }
     }
-    if (!finished) return res.status(504).json({ error: "Preview took too long. Last status: " + lastStatus });
 
-    const out = await fetch(resultUrl, { headers: { "Authorization": "Key " + KEY } });
-    const oj = await out.json().catch(() => ({}));
-    const url = oj && oj.images && oj.images[0] && oj.images[0].url;
-    if (!url) return res.status(502).json({ error: "No image url in result: " + JSON.stringify(oj).slice(0, 300) });
+    return res.status(504).json({ error: 'Timed out waiting for preview' });
 
-    return res.status(200).json({ url: url });
   } catch (e) {
-    return res.status(500).json({ error: "Server crashed: " + (e && e.message ? e.message : String(e)) });
+    return res.status(500).json({ error: e.message || 'Server error' });
   }
-};
+}
