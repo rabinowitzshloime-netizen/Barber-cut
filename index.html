@@ -96,6 +96,9 @@
   .selfie-preview img{max-width:130px;border-radius:9px;border:1px solid var(--line);display:block}
   .tryon-out{margin-top:12px}
   .tryon-out img{width:100%;border-radius:11px;border:1px solid var(--brass);display:block}
+  .cut-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .cut-chip{padding:6px 12px;border:1px solid var(--line);border-radius:20px;font-size:12px;color:var(--chrome);cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+  .cut-chip:hover,.cut-chip.on{border-color:var(--brass);color:var(--brass);background:rgba(195,154,91,.1)}
   .cal-wrap{margin-top:8px}
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .cal-nav b{font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--porcelain)}
@@ -181,8 +184,13 @@
       <h2>Step 2 — Describe your cut</h2>
       <div class="chosen" id="chosen2"></div>
       <label for="b-want">What cut do you want?</label>
-      <div class="hint">Say it however you like — guard numbers, fade, line-up, beard.</div>
-      <textarea id="b-want" placeholder="e.g. Skin fade up the sides, longer messy bit on top, sharp line-up, beard tidied"></textarea>
+      <div class="hint">Pick a style below or describe it yourself.</div>
+      <div class="cut-chips" id="cut-chips"></div>
+      <textarea id="b-want" placeholder="e.g. Skin fade up the sides, longer messy bit on top, sharp line-up, beard tidied" oninput="clearChipSel()"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--chrome);cursor:pointer">
+        <input type="checkbox" id="payot-check" style="width:16px;height:16px;accent-color:var(--brass)">
+        Add Payot (Jewish sidelocks to the cheekbone)
+      </label>
 
       <div class="tryon">
         <div class="tryon-head">See it on you <small>optional</small></div>
@@ -423,6 +431,7 @@ async function load(){
   await pullBookings();
   if(!dayPick) dayPick = nextDays()[0].iso;
   buildStyleGrid();
+  buildCutChips();
   render();
   setInterval(async ()=>{ await pullBookings(); render(); }, 20000);
 }
@@ -694,7 +703,7 @@ function goStep(n){
   if(n===3){
     const name=document.getElementById('b-name').value.trim();
     const phone=document.getElementById('b-phone').value.trim();
-    const want=document.getElementById('b-want').value.trim();
+    const want=getWant();
     if(!want)  return flash('Describe the cut you want.');
     if(!wantIsValid(want)) return;
     if(!name)  return flash('Add your name.');
@@ -798,6 +807,26 @@ const STYLES=[
 ];
 let visData=null, visStyle=null;
 
+function buildCutChips(){
+  const box=document.getElementById('cut-chips'); if(!box) return;
+  box.innerHTML=STYLES.map((s,i)=>
+    `<button class="cut-chip" id="chip-${i}" onclick="pickBookStyle(${i})">${s.name}</button>`
+  ).join('');
+}
+function pickBookStyle(i){
+  const s=STYLES[i];
+  document.getElementById('b-want').value=s.prompt.charAt(0).toUpperCase()+s.prompt.slice(1);
+  STYLES.forEach((_,j)=>document.getElementById('chip-'+j).classList.toggle('on',j===i));
+}
+function getWant(){
+  let w=document.getElementById('b-want').value.trim();
+  if(document.getElementById('payot-check')&&document.getElementById('payot-check').checked)
+    w+=(w?', ':'')+'with payot sidelocks reaching to the cheekbone';
+  return w;
+}
+function clearChipSel(){
+  STYLES.forEach((_,j)=>{const c=document.getElementById('chip-'+j);if(c)c.classList.remove('on');});
+}
 function buildStyleGrid(){
   const grid=document.getElementById('style-grid'); if(!grid) return;
   grid.innerHTML=STYLES.map((s,i)=>
@@ -887,7 +916,7 @@ async function book(){
   const name=document.getElementById('b-name').value.trim();
   const phone=document.getElementById('b-phone').value.trim();
   const email=document.getElementById('b-email').value.trim();
-  const want=document.getElementById('b-want').value.trim();
+  const want=getWant();
   if(!want)              return flash('Describe the cut you want.');
   if(!wantIsValid(want)) return;
   if(!timePick)          return flash('Pick a time slot.');
@@ -916,6 +945,8 @@ async function book(){
   document.getElementById('b-phone').value='';
   document.getElementById('b-email').value='';
   document.getElementById('b-want').value='';
+  const pc=document.getElementById('payot-check'); if(pc) pc.checked=false;
+  clearChipSel();
   resetTryon(); timePick=null;
   flash('Booked in. See you then.'); render();
 }
